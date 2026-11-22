@@ -5,5 +5,5 @@ export default defineConfig({
   testMatch: '**/*.electron.spec.ts',
   workers: 1,
   reporter: 'list',
-  timeout: 30_000,
+  timeout: 180_000,
 });

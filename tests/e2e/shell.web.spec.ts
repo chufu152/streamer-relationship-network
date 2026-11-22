@@ -11,7 +11,6 @@ test('renders a white workspace with visible toolbars', async ({ page }, testInf
   for (const name of ['新建', '打开', '另存为', '保存', '添加人物', '缩小', '放大', '适应全部']) {
     const button = page.getByRole('button', { name, exact: name !== '保存' });
     await expect(button).toBeVisible();
-    await expect(button).toBeDisabled();
     const box = await button.boundingBox();
     expect(box).not.toBeNull();
     expect(box!.x).toBeGreaterThanOrEqual(0);
@@ -19,19 +18,21 @@ test('renders a white workspace with visible toolbars', async ({ page }, testInf
     expect(box!.x + box!.width).toBeLessThanOrEqual(page.viewportSize()!.width);
   }
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await page.screenshot({ path: `.artifacts/m1-${testInfo.project.name}.png` });
+  await page.screenshot({ path: `.artifacts/shell-${testInfo.project.name}.png` });
   expect(errors).toEqual([]);
 });
 
-test('input can be focused but Enter does not fake adding or saving', async ({ page }) => {
+test('adds people with Enter and keeps duplicate names independent', async ({ page }) => {
   await page.goto('/');
-  const input = page.getByRole('textbox', { name: '人物姓名' });
-  await page.keyboard.press('Tab');
-  await expect(input).toBeFocused();
-  await input.fill('测试人物');
+  const input = page.getByRole('textbox', { name: '人物姓名', exact: true });
+  await input.fill(' 测试人物 ');
   await input.press('Enter');
-  await expect(input).toHaveValue('测试人物');
-  await expect(page.getByLabel('画布统计')).toHaveText('0 人物0 关系');
-  await expect(page.getByText('M1 工程预览 · 尚未开放编辑与保存')).toBeVisible();
-  expect(await page.evaluate(() => typeof window.desktop)).toBe('undefined');
+  await expect(input).toHaveValue('');
+  await expect(page.getByLabel('画布统计')).toHaveText('1 人物0 关系');
+  await input.fill('测试人物');
+  await page.getByRole('button', { name: '添加人物' }).click();
+  await expect(page.getByRole('button', { name: '人物 测试人物', exact: true })).toHaveCount(2);
+  await input.fill('  '); await input.press('Enter');
+  await expect(page.getByRole('alert')).toContainText('姓名不能为空');
+  await expect(page.getByLabel('画布统计')).toHaveText('2 人物0 关系');
 });

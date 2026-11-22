@@ -49,7 +49,18 @@ test('production desktop starts with sandboxed renderer and minimal bridge', asy
       await page.screenshot({ path: `.artifacts/m1-electron-${size.width}.png` });
     }
     await page.getByRole('textbox', { name: '人物姓名' }).fill('桌面测试人物');
-    await expect(page.getByRole('button', { name: '添加人物' })).toBeDisabled();
+    await page.getByRole('button', { name: '添加人物' }).click();
+    await expect(page.getByRole('button', { name: '人物 桌面测试人物', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: '人物 桌面测试人物', exact: true }).click({ button: 'right' });
+    const png = await page.evaluate(() => {
+      const canvas = document.createElement('canvas'); canvas.width = 80; canvas.height = 60;
+      canvas.getContext('2d')!.fillRect(0, 0, 80, 60);
+      return canvas.toDataURL('image/png').split(',')[1];
+    });
+    await page.getByLabel('选择人物照片').setInputFiles({ name: 'synthetic.png', mimeType: 'image/png', buffer: Buffer.from(png, 'base64') });
+    await expect(page.getByRole('button', { name: '移除照片' })).toBeVisible();
+    await page.getByRole('button', { name: '取消', exact: true }).click();
+    await expect(page.locator('.person-node img')).toBeVisible();
     const original = page.url();
     await page.evaluate(() => { window.open('https://example.com/'); });
     await expect.poll(() => app.windows().length).toBe(1);
