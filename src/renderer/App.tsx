@@ -5,6 +5,8 @@ import { GraphCanvas } from './GraphCanvas';
 import { Modal } from './Modal';
 import { processPhoto } from './photo';
 import { fitPeople, toWorld, zoomAt } from '../shared/geometry';
+import { connectPeople } from '../shared/relationships';
+import { RelationshipEditor } from './RelationshipEditor';
 
 type Connection = 'preview' | 'connecting' | 'connected' | 'failed';
 
@@ -20,6 +22,9 @@ export function App() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draftName, setDraftName] = useState('');
+  const [relationshipId, setRelationshipId] = useState<string | null>(null);
+  const [connectTarget, setConnectTarget] = useState('');
+  const editingRelationship = project.relationships.find((relation) => relation.id === relationshipId);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [photoBusy, setPhotoBusy] = useState(false);
   const [connection, setConnection] = useState<Connection>(window.desktop ? 'connecting' : 'preview');
@@ -45,7 +50,7 @@ export function App() {
 
   function editPerson(id: string) {
     const person = project.people.find((item) => item.id === id)!;
-    setSelectedId(id); setEditingId(id); setDraftName(person.name); setConfirmDelete(false); setMessage('');
+    setSelectedId(id); setEditingId(id); setRelationshipId(null); setConnectTarget(''); setDraftName(person.name); setConfirmDelete(false); setMessage('');
   }
 
   function add() {
@@ -66,6 +71,15 @@ export function App() {
       updateProject((current) => setPersonPhoto(current, id, asset)); setMessage('照片已更新，尚未保存到文件');
     } catch (error) { setMessage((error as Error).message); }
     finally { setPhotoBusy(false); if (fileInput.current) fileInput.current.value = ''; }
+  }
+
+  function connect(source: string, target: string) {
+    try {
+      const result = connectPeople(project, source, target);
+      setEditingId(null);
+      if (result.created) { updateProject(() => result.project); setMessage('关系已创建；右键连线设置方向和名称，尚未保存到文件'); }
+      else { setRelationshipId(result.relationshipId); setMessage(''); }
+    } catch (error) { setMessage((error as Error).message); }
   }
 
   function zoom(factor: number) {
@@ -96,7 +110,8 @@ export function App() {
       <main ref={workspace} className="workspace" aria-label="人物关系画布">
         <GraphCanvas project={project} selectedId={selectedId} onSelect={setSelectedId} onEditPerson={editPerson}
           onMove={(id, point) => updateProject((current) => ({ ...current, people: current.people.map((person) => person.id === id ? { ...person, ...point } : person) }))}
-          onViewport={(viewport) => updateProject((current) => ({ ...current, viewport }))} />
+          onViewport={(viewport) => updateProject((current) => ({ ...current, viewport }))}
+          onConnect={connect} onEditRelationship={(id) => { setRelationshipId(id); setEditingId(null); setMessage(''); }} />
         {!project.people.length && <div className="empty-state"><h1>从第一个人物开始</h1><p>在下方输入名字，添加第一个人物。</p><span className="empty-note">右键人物或点击“编辑人物”，为他们添加照片。</span></div>}
         {selectedId && <div className="selection-tools"><button onClick={() => editPerson(selectedId)}>编辑人物</button></div>}
         <div className="canvas-footer">
@@ -125,12 +140,24 @@ export function App() {
             {editingPerson.photoAssetId && <button type="button" disabled={photoBusy} onClick={() => updateProject((current) => setPersonPhoto(current, editingPerson.id, null))}>移除照片</button>}
             <input ref={fileInput} aria-label="选择人物照片" type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={(event) => { const file = event.target.files?.[0]; if (file) void upload(file); }} />
           </div><p className="field-hint">PNG、JPEG、WebP，最大 10 MiB。照片更换会立即应用。</p>
+          <label htmlFor="connect-target" className="field-label">连接到人物</label>
+          <div className="connect-actions"><select id="connect-target" value={connectTarget} onChange={(event) => setConnectTarget(event.target.value)} disabled={photoBusy}>
+            <option value="">选择另一个人物</option>{project.people.filter((person) => person.id !== editingId).map((person) => <option key={person.id} value={person.id}>{person.name} · {person.id.slice(0, 8)}</option>)}
+          </select><button type="button" disabled={!connectTarget || photoBusy} onClick={() => connect(editingPerson.id, connectTarget)}>创建关系</button></div>
+          <div className="related-list">{project.relationships.filter((relation) => relation.sourceId === editingId || relation.targetId === editingId).map((relation) => {
+            const other = project.people.find((person) => person.id === (relation.sourceId === editingId ? relation.targetId : relation.sourceId))!;
+            return <button type="button" key={relation.id} disabled={photoBusy} onClick={() => { setRelationshipId(relation.id); setEditingId(null); }}>{relation.label || '未命名关系'} · {other.name} · {other.id.slice(0, 8)}</button>;
+          })}</div>
           {message && <p className="dialog-message" role="status">{message}</p>}
           {confirmDelete ? <div className="delete-confirm"><p>删除「{editingPerson.name}」及 {project.relationships.filter((relation) => relation.sourceId === editingId || relation.targetId === editingId).length} 条关联关系？</p><button type="button" className="danger" onClick={() => { updateProject((current) => deletePerson(current, editingPerson.id)); setEditingId(null); setSelectedId(null); }}>确认删除</button><button type="button" onClick={() => setConfirmDelete(false)}>保留人物</button></div>
             : <button type="button" className="text-danger" disabled={photoBusy} onClick={() => setConfirmDelete(true)}>删除人物</button>}
           <div className="modal-actions"><button type="button" disabled={photoBusy} onClick={() => setEditingId(null)}>取消</button><button className="primary" disabled={photoBusy}>应用姓名</button></div>
         </form>
       </Modal>}
+      {editingRelationship && <RelationshipEditor key={editingRelationship.id} project={project} relationship={editingRelationship}
+        onClose={() => setRelationshipId(null)}
+        onApply={(direction, label) => { updateProject((current) => ({ ...current, relationships: current.relationships.map((relation) => relation.id === relationshipId ? { ...relation, direction, label } : relation) })); setRelationshipId(null); setMessage('关系已更新，尚未保存到文件'); }}
+        onDelete={() => { updateProject((current) => ({ ...current, relationships: current.relationships.filter((relation) => relation.id !== relationshipId) })); setRelationshipId(null); }} />}
     </div>
   );
 }
