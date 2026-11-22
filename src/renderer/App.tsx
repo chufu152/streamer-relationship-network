@@ -4,6 +4,7 @@ import { addPerson, deletePerson, setPersonPhoto, validateName } from '../shared
 import { GraphCanvas } from './GraphCanvas';
 import { Modal } from './Modal';
 import { processPhoto } from './photo';
+import { fitPeople, toWorld, zoomAt } from '../shared/geometry';
 
 type Connection = 'preview' | 'connecting' | 'connected' | 'failed';
 
@@ -51,7 +52,7 @@ export function App() {
     if (composing.current) return;
     try {
       const rect = workspace.current!.getBoundingClientRect();
-      const next = addPerson(project, name, { x: rect.width / 2, y: (rect.height - 70) / 2 });
+      const next = addPerson(project, name, toWorld({ x: rect.width / 2, y: (rect.height - 70) / 2 }, project.viewport));
       updateProject(() => next); setName(''); setMessage('');
       setSelectedId(next.people.at(-1)!.id); nameInput.current?.focus();
     } catch (error) { setMessage((error as Error).message); }
@@ -65,6 +66,18 @@ export function App() {
       updateProject((current) => setPersonPhoto(current, id, asset)); setMessage('照片已更新，尚未保存到文件');
     } catch (error) { setMessage((error as Error).message); }
     finally { setPhotoBusy(false); if (fileInput.current) fileInput.current.value = ''; }
+  }
+
+  function zoom(factor: number) {
+    const rect = workspace.current!.getBoundingClientRect();
+    updateProject((current) => ({ ...current, viewport: zoomAt(current.viewport, current.viewport.zoom * factor, { x: rect.width / 2, y: (rect.height - 70) / 2 }) }));
+  }
+
+  function fit() {
+    const rect = workspace.current!.getBoundingClientRect();
+    const result = fitPeople(project.people, rect.width, rect.height - 70);
+    updateProject((current) => ({ ...current, viewport: result.viewport }));
+    setMessage(result.limited ? '已缩小到 25%，人物过于分散，请平移查看或移动人物后重试' : '');
   }
 
   const connectionLabel = { preview: '浏览器预览', connecting: '正在连接桌面环境…', connected: '桌面环境已连接', failed: '桌面连接失败，请重新启动应用' }[connection];
@@ -81,14 +94,16 @@ export function App() {
         </nav>
       </header>
       <main ref={workspace} className="workspace" aria-label="人物关系画布">
-        <GraphCanvas project={project} selectedId={selectedId} onSelect={setSelectedId} onEditPerson={editPerson} />
+        <GraphCanvas project={project} selectedId={selectedId} onSelect={setSelectedId} onEditPerson={editPerson}
+          onMove={(id, point) => updateProject((current) => ({ ...current, people: current.people.map((person) => person.id === id ? { ...person, ...point } : person) }))}
+          onViewport={(viewport) => updateProject((current) => ({ ...current, viewport }))} />
         {!project.people.length && <div className="empty-state"><h1>从第一个人物开始</h1><p>在下方输入名字，添加第一个人物。</p><span className="empty-note">右键人物或点击“编辑人物”，为他们添加照片。</span></div>}
         {selectedId && <div className="selection-tools"><button onClick={() => editPerson(selectedId)}>编辑人物</button></div>}
         <div className="canvas-footer">
           <p className="graph-count" aria-label="画布统计"><span>{project.people.length} 人物</span><span className="count-divider" aria-hidden="true" /><span>{project.relationships.length} 关系</span></p>
           <div className="zoom-controls" role="group" aria-label="画布视图">
-            <button type="button" disabled aria-label="缩小" title="画布导航将在 M3 启用"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 10h10" /></svg></button><span className="zoom-value">100%</span>
-            <button type="button" disabled aria-label="放大" title="画布导航将在 M3 启用"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 10h10M10 5v10" /></svg></button><span className="zoom-divider" aria-hidden="true" /><button type="button" disabled className="fit-button">适应全部</button>
+            <button type="button" disabled={project.viewport.zoom <= 0.25} onClick={() => zoom(1 / 1.2)} aria-label="缩小"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 10h10" /></svg></button><span className="zoom-value">{Math.round(project.viewport.zoom * 100)}%</span>
+            <button type="button" disabled={project.viewport.zoom >= 2} onClick={() => zoom(1.2)} aria-label="放大"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 10h10M10 5v10" /></svg></button><span className="zoom-divider" aria-hidden="true" /><button type="button" onClick={fit} className="fit-button">适应全部</button>
           </div>
         </div>
       </main>
@@ -99,7 +114,7 @@ export function App() {
             onCompositionStart={() => { composing.current = true; }} onCompositionEnd={() => { composing.current = false; }}
             onKeyDown={(event) => { if (event.key === 'Enter' && (composing.current || event.nativeEvent.isComposing)) event.preventDefault(); }} aria-describedby="stage-notice" autoComplete="off" />
           <button type="submit" className="add-button">添加人物</button>
-        </form><span id="stage-notice" className="stage-notice">人物编辑已开放 · 本地保存尚未启用</span>
+        </form><span id="stage-notice" className="stage-notice">长按人物移动 · 滚轮平移 · Ctrl + 滚轮缩放</span>
       </footer>
       {message && <div className={`toast ${editingId ? 'in-dialog' : ''}`} role="alert">{message}</div>}
       {editingPerson && <Modal title="编辑人物" onClose={() => { if (!photoBusy) setEditingId(null); }}>
