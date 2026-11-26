@@ -1,14 +1,30 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import fs from 'node:fs/promises';
 import sharp from 'sharp';
 import { basename, dirname, join, resolve } from 'node:path';
 import { validatePhotoAsset } from '../shared/photo';
-import { projectSchema, PROJECT_LIMITS, type NetworkProject } from '../shared/project';
+import { projectSchema, PROJECT_LIMITS, type NetworkProject, type PhotoAsset } from '../shared/project';
 
 class ProjectFileError extends Error {}
 
 // Main/UI also lock saves; this guard protects direct callers of the service.
 const activeSaves = new Set<string>();
+
+// Inspecting and fully decoding one photo costs several milliseconds, and a save validates the new
+// content, the existing target and the .bak: 200 photos took 4–8 s per save. Asset bytes are immutable,
+// so an asset that passed both checks is remembered by content hash. Nothing invalid is ever remembered,
+// and only hashes are kept, never image data.
+const validatedAssets = new Set<string>();
+const VALIDATED_ASSET_LIMIT = 4096;
+const DECODE_CONCURRENCY = 8;
+
+function assetKey(asset: PhotoAsset): string {
+  return createHash('sha256').update(`${asset.mimeType}:${asset.width}x${asset.height}:`).update(asset.dataBase64).digest('base64');
+}
+
+function unvalidatedAssets(project: NetworkProject): PhotoAsset[] {
+  return project.assets.filter((asset) => !validatedAssets.has(assetKey(asset)));
+}
 
 function hasCode(error: unknown, code: string): boolean {
   return typeof error === 'object' && error !== null && 'code' in error && error.code === code;
@@ -39,22 +55,32 @@ function validateProject(input: unknown): NetworkProject {
   if (!parsed.success) {
     throw new ProjectFileError('项目格式或数据无效，请检查必填字段、容量限制以及照片和关系引用');
   }
-  for (const [index, asset] of parsed.data.assets.entries()) {
+  // Container checks stay synchronous and in order: the first invalid asset is reported as before.
+  for (const asset of unvalidatedAssets(parsed.data)) {
     try {
       validatePhotoAsset(asset);
     } catch (error) {
-      throw new ProjectFileError(`第 ${index + 1} 个照片资产无效，请重新导入静态 WebP 照片`, { cause: error });
+      throw new ProjectFileError(`第 ${parsed.data.assets.indexOf(asset) + 1} 个照片资产无效，请重新导入静态 WebP 照片`, { cause: error });
     }
   }
   return parsed.data;
 }
 
+/** Decodes the pixels of assets not validated yet, several at a time, and only then remembers them. */
 async function decodeProjectPhotos(project: NetworkProject): Promise<void> {
-  for (const asset of project.assets) {
-    try {
-      await sharp(Buffer.from(asset.dataBase64, 'base64'), { limitInputPixels: PROJECT_LIMITS.photoSide ** 2, failOn: 'warning' }).raw().toBuffer();
-    } catch { throw new ProjectFileError('照片像素数据无效或已损坏，请重新导入照片'); }
-  }
+  const pending = unvalidatedAssets(project).map((asset) => [assetKey(asset), asset] as const);
+  let next = 0;
+  const worker = async () => {
+    while (next < pending.length) {
+      const asset = pending[next++][1];
+      try {
+        await sharp(Buffer.from(asset.dataBase64, 'base64'), { limitInputPixels: PROJECT_LIMITS.photoSide ** 2, failOn: 'warning' }).raw().toBuffer();
+      } catch { throw new ProjectFileError('照片像素数据无效或已损坏，请重新导入照片'); }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(DECODE_CONCURRENCY, pending.length) }, worker));
+  if (validatedAssets.size + pending.length > VALIDATED_ASSET_LIMIT) validatedAssets.clear();
+  for (const [key] of pending) validatedAssets.add(key);
 }
 
 async function readValidatedFile(path: string): Promise<{ bytes: Buffer; project: NetworkProject }> {

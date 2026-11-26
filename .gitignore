@@ -7,6 +7,7 @@ playwright-report/
 test-results/
 .artifacts/
 .tools/
+/streamer-relationship-network-handoff.zip
 *.log
 *.tsbuildinfo
 .env

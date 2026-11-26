@@ -1,6 +1,6 @@
 {
   "name": "streamer-relationship-network",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "离线人物交际网桌面应用",
   "private": true,
   "type": "module",
@@ -18,7 +18,9 @@
     "test": "vitest run",
     "test:e2e": "playwright test",
     "test:electron": "npm run build && playwright test --config playwright.electron.config.ts",
-    "check": "npm run lint && npm run typecheck && npm run test && npm run build"
+    "check": "npm run lint && npm run typecheck && npm run test && npm run build",
+    "test:packaged": "playwright test --config playwright.acceptance.config.ts",
+    "dist:win": "npm run build && electron-builder --win --x64"
   },
   "dependencies": {
     "image-size": "2.1.0",
@@ -35,6 +37,7 @@
     "@types/react-dom": "19.3.0",
     "@vitejs/plugin-react": "6.3.0",
     "electron": "45.4.1",
+    "electron-builder": "26.18.0",
     "electron-vite": "6.0.0",
     "eslint": "10.15.0",
     "eslint-plugin-react-hooks": "7.1.1",

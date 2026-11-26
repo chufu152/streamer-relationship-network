@@ -98,7 +98,7 @@ export function App() {
     <div className="app-shell" inert={transitioning} aria-busy={saving || transitioning}>
       <header className="toolbar">
         <div className="identity"><span className="brand-mark"><NetworkMark /></span><span className="brand-name">人物交际网</span><span className="toolbar-divider" aria-hidden="true" />
-          <div className="project-heading"><span className="project-title" title={path || project.title}>{path ? path.split(/[\\/]/).at(-1) : project.title}</span><span className="project-state">{saving ? '正在保存…' : revision !== savedRevision ? '未保存' : path ? '已保存' : '空白项目'}</span></div>
+          <div className="project-heading"><span className="project-title" title={path || project.title}>{path ? path.split(/[\\/]/).at(-1) : project.title}</span><span className="project-state">{transitioning ? '正在处理…' : saving ? '正在保存…' : revision !== savedRevision ? '未保存' : path ? '已保存' : '空白项目'}</span></div>
         </div>
         <nav className="file-actions" aria-label="项目文件">
           <button type="button" disabled={!window.desktop || saving || photoBusy} onClick={() => void switchProject('new')}>新建</button><button type="button" disabled={!window.desktop || saving || photoBusy} onClick={() => void switchProject('open')}>打开</button><button type="button" disabled={!window.desktop || saving || photoBusy} onClick={() => void saveProject(true)}>另存为</button>

@@ -80,7 +80,7 @@ button:not(:disabled):hover { background-color: #edf1f4; }
 .person-node.is-selected .person-oval, .person-node.is-selected img { outline: 2px solid var(--color-focus); outline-offset: 4px; }
 .person-node:not(:disabled):hover { background: transparent; }
 .person-node:hover .person-oval { border-color: var(--color-focus); }
-.person-node.has-photo { width: 80px; height: 80px; }
+.person-node.has-photo { width: 80px; height: 80px; border-radius: 50%; }
 .person-node img { display: block; width: 80px; height: 80px; object-fit: cover; border-radius: 50%; }
 .photo-name { position: absolute; top: 88px; left: 50%; transform: translateX(-50%); width: 144px; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: white; padding: 2px 4px; }
 .empty-state { pointer-events: none; }

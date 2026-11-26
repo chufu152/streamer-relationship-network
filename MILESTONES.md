@@ -6,7 +6,7 @@
 - 目标平台：Windows 10/11 x64 桌面应用。
 - 技术方案：Electron + React + TypeScript。
 - GitHub 仓库：https://github.com/chufu152/streamer-relationship-network.git
-- 当前范围：用户于 2026-11-22 要求连续完成所有里程碑；M0、M1 已推送，M2～M5 本地已完成（推送受阻），2026-11-26 接手后继续 M6。
+- 当前范围：用户于 2026-11-22 要求连续完成所有里程碑；M0、M1 已推送，M2～M6 已在本地完成并验收（M2～M6 推送受阻于网络），2026-11-26 完成接手后的 M5 复验与 M6。
 
 ## 1. 完成判定与推送约定
 
@@ -44,13 +44,17 @@ npm run dev:web
 npm run check
 npm run test:e2e
 npm run test:electron
+npm run dist:win
+npm run test:packaged
 ```
 
 - `dev` 启动 Electron 桌面开发模式；`dev:web` 只预览共享界面，两者都使用 127.0.0.1:5173，同一时间只启动一个。
 - `check` 顺序执行 lint、typecheck、单元测试和生产构建；这些子命令也可单独运行。
 - `test:e2e` 覆盖 960 × 640 与 1920 × 1080 的浏览器界面，需要先执行 `npx playwright install chromium`。
 - `test:electron` 先构建，再实际启动 Electron，验证最小桥接、Node 全局隔离、操作系统级沙箱、窗口限制和导航阻断。
-- `npm run build` 后可以用 `npm start` 启动生产资源版本；M1 尚未提供安装包，`dist:win` 留到 M6 实现，当前不应调用。
+- `npm run build` 后可以用 `npm start` 启动生产资源版本。
+- M6 起新增两条命令（2026-11-26）：`npm run dist:win` 先构建再用 electron-builder 生成 `release/relationship-network-<版本>-x64-setup.exe`；`npm run test:packaged` 对 `release/win-unpacked` 运行安装包验收（设置 `NETWORK_EXECUTABLE_PATH` 可指向其他可执行文件，例如安装后的程序）。GitHub 不可达时，仅对当次构建命令设置 `ELECTRON_MIRROR` 与 `ELECTRON_BUILDER_BINARIES_MIRROR` 指向 npmmirror 镜像，不写入仓库配置。
+- Electron 45.4.1 的 npm 包不再自带 postinstall：新环境安装依赖后须执行一次 `npx install-electron` 下载二进制，否则 `test:electron` 无法启动。
 - 本机开发使用现有工具附带的 Node/npm，未修改系统 PATH；终端需先让该运行时在当前会话中可用。
 - 已建立的检查不能跳过；M0 没有业务代码，因此其交付不包含这些应用测试。
 
@@ -64,7 +68,7 @@ npm run test:electron
 | M3 | 画布导航与长按移动 | M2 | 可平移缩放，人物可准确拖动 | 本地已验收，推送受阻 |
 | M4 | 拖放连线与关系编辑 | M3 | 三种箭头、关系名称与编辑窗口 | 本地已验收，推送受阻 |
 | M5 | 本地保存与恢复闭环 | M4 | 可完整保存、重开，失败不破坏原文件 | 本地已验收，推送受阻 |
-| M6 | 综合验收与 Windows 交付 | M5 | 通过回归的安装包与实际验证记录 | 未开始 |
+| M6 | 综合验收与 Windows 交付 | M5 | 通过回归的安装包与实际验证记录 | 本地已验收，推送受阻 |
 
 顺序依赖：`M0 → M1 → M2 → M3 → M4 → M5 → M6`。
 
@@ -249,7 +253,65 @@ M4 交付的是内存内关系编辑，M5 才完成关系窗口“保存”同�
 | M3 | 2026-11-22 | 基础及画布单测 87 项、构建和 Electron 回归通过；双视口 24 项画布测试与 8 项人物/界面回归通过；已查看画布截图 | 长按、偏移保留、25%～200% 缩放、平移与适应全部 | 本地已验收，推送受阻 |
 | M4 | 2026-11-22 | lint、typecheck、生产构建、截至本阶段 88 项基础/照片/几何/关系单测、36 项双视口浏览器测试通过；关系截图已查看 | 拖放连接、去重、固定端点箭头、关系编辑删除、重名人物菜单入口 | 本地已验收，推送受阻 |
 | M5 | 2026-11-26 | lint、typecheck、132 项单元测试、生产构建；40 项双视口浏览器测试；8 项 Electron 集成测试（修复 3 处测试代码缺陷后通过，产品代码未改） | .srn 读写与严格校验、新建/打开/保存/另存为/Ctrl+S、临时文件替换与 .bak、修订号与未保存提醒、关闭确认、单实例限制 | 本地已验收，推送受阻（网络） |
-| M6 | — | 后续阶段按实际结果补充 | 实施中 | 未推送 |
+| M6 | 2026-11-26 | 目标负载实测并修复两处瓶颈后：`npm run check`（132 项单测）、40 项浏览器、8 项 Electron、4 项安装包验收（含 100%/125%/150% 显示缩放）全部通过；真实安装后验收 4/4 通过并已卸载，用户项目文件保留 | NSIS x64 安装包 1.0.0（未签名）、性能实测记录、A01～A14 对照、文件服务与拖动渲染优化 | 本地已验收，推送受阻（网络） |
+
+### M6 验收记录（2026-11-26）
+
+**实测环境**：Windows x64（10.0.28000），Intel Core Ultra 9 275HX（24 逻辑核），31.4 GiB 内存，本机 SSD；Node.js 22.22.2，npm 10.9.7，Electron 45.4.1，electron-builder 26.18.0。未改动机器上的 hosts 与系统代理。
+
+**命令与结果**（均在最终代码上执行）：
+
+| 命令 | 结果 |
+| --- | --- |
+| `npm run check` | lint、typecheck、132 项单元测试、生产构建通过 |
+| `playwright test --workers=2` | 40 项浏览器测试通过（960 × 640、1920 × 1080） |
+| `npm run test:electron` | 8 项 Electron 集成测试通过 |
+| `npm run dist:win` | 生成 `release/relationship-network-1.0.0-x64-setup.exe`，22～48 秒 |
+| `npm run test:packaged` | 4 项通过：100%、125%、150% 显示缩放下保存→退出→重开→打开；200 人物/400 关系/200 照片性能采样 |
+| 安装后（`NETWORK_EXECUTABLE_PATH` 指向已安装程序）再跑 `test:packaged` | 4 项通过 |
+| 静默安装 `/S` → 静默卸载 `/currentuser /S` | 安装 123 个文件（约 410 MB）到 `%LOCALAPPDATA%\Programs\relationship-network`，写入当前用户卸载项与桌面、开始菜单快捷方式，无需管理员；卸载后安装目录、卸载项、快捷方式全部清除，卸载前用安装版保存的项目文件哈希不变 |
+
+**性能实测**（安装版，200 人物、400 关系、200 张 512 × 512 WebP，项目文件 42.2 MB）：
+
+| 指标 | 优化前 | 优化后 | 目标 |
+| --- | --- | --- | --- |
+| 拖动时主线程每帧耗时：平均 / p95 | 29 ms / 80 ms | 4.2 ms / 4.3 ms | 目标负载 ≥ 30 FPS（33 ms） |
+| 保存 | 3916 ms | 1702 ms | ≤ 3 s |
+| 打开：冷启动后打开 | 3767 ms | 1513 ms | ≤ 3 s |
+| 打开：同一进程内保存后再打开 | — | 489 ms | — |
+
+- 帧间隔由 `requestAnimationFrame` 采样 2 秒得到；优化后每帧稳定在 5 ms 内，远低于 60 FPS 的 16.7 ms 预算，优化前的 80 ms 尖峰消失。采样输出的帧率数值是回调频率，不代表显示器刷新率。
+- 修复的两处瓶颈（均有前后对比，产品语义不变）：
+  1. 文件服务：每次保存都把新内容、已有目标文件和 `.bak` 各做一遍“头部校验 + 全量像素解码”，且逐字节回调转换、逐张串行解码。基准实测 200 张照片首次保存 3.9 s、第二次 7.8 s；有备份后每次还要再校验一遍 `.bak`，按同一规律推算约 11.6 s。改为按内容哈希记住已完整校验的资产（只存哈希，无效资产永不入缓存）、头部校验用普通循环、像素解码并发 8 路。文件服务基准：首次保存 3909 → 1401 ms，第二次 7773 → 903 ms，第三次 1275 ms，冷读 3803 → 1380 ms。
+  2. 拖动渲染：每帧为 200 个节点重新拼接照片 data URL 并传入新的内联回调，使 `PersonNode` 的 memo 失效，400 条关系线也每帧重算。改为每个资产只生成一次 data URL、回调保持稳定并读取最新处理函数、每条关系线单独 memo。
+- 另有两处小改动：切换项目等耗时操作期间标题栏显示“正在处理…”（对应“超过 300 ms 显示处理中状态”）；带照片的节点加圆角，使键盘焦点环贴合圆形。
+
+**A01～A14 对照**：
+
+| 编号 | 结论 | 证据 |
+| --- | --- | --- |
+| A01 首次打开 | 通过 | `shell.web`、`shell.electron`；空状态截图已人工查看 |
+| A02 添加人物 | 通过 | `people.web`、`shell.web`（Enter、中文组合输入、重名） |
+| A03 上传照片 | 通过 | `people.web`、`photo.test` 50 项、`files.electron` 合成照片、安装包验收 |
+| A04 长按移动 | 通过 | `canvas.web`、`canvas-boundaries.web`（双视口 20 项） |
+| A05 拖放连线 | 通过 | `relationships.web` |
+| A06 设置关系 | 通过 | `relationships.web`、`files.electron` 关系窗口保存 |
+| A07 身份与箭头 | 通过 | `relationships.web`、`relationships.test`、`geometry.test` |
+| A08 保存与重开 | 通过 | `files.electron` 黄金路径、安装包验收三档缩放重启 |
+| A09 保存失败 | 通过 | `project-files.test` 44 项（注入各阶段 I/O 失败）、`files.electron` 取消/非法目标/只读 |
+| A10 未保存关闭 | 通过 | `files.electron` 三条关闭用例、`persistence.web` |
+| A11 删除 | 通过 | `relationships.web` 级联删除、`operations.test` |
+| A12 错误文件 | 通过 | `project.test` 19 项、`project-files.test`、`files.electron` 未来版本 |
+| A13 无需网络 | 通过 | 全部 Electron 与安装包用例在离线模式运行；安装包用例新增断言：全程只请求 `file:`/`data:` |
+| A14 打包 | 通过 | 见上表安装、运行、保存重开、卸载记录 |
+
+**安装包**：`release/relationship-network-1.0.0-x64-setup.exe`，129,358,220 字节，SHA-256 `e623c66ec1fdc1defaff21f99a763fc1bf6b1a2cdd6fa5cf24fe69dd21da5e94`。未签名：本机由命令行启动未见系统拦截提示，但从浏览器下载后运行可能出现 SmartScreen 提示，未做消除保证。`package.json` 未配置 `author`，可执行文件的公司信息为空。安装目录名使用 ASCII 的 `relationship-network`（产品名为中文时 electron-builder 的默认行为）。
+
+**已知限制与说明**：
+
+- 推送受阻：本机 hosts 把 GitHub 域名指向 127.0.0.1（加速器未运行），直连 TLS 握手超时；未修改 hosts 或系统代理。M2～M6 的提交均保留在本地，待网络恢复后执行 `git push origin main` 并核对远端哈希。
+- Electron 集成测试会弹出真实窗口：运行期间若有人操作鼠标键盘，可能出现间歇性失败（见 M5 验证说明）。
+- 性能数据只代表本机硬件；更慢的机器上冷启动打开 200 张照片可能超过 3 秒，界面此时显示“正在处理…”。
 
 ### M5 验证说明
 

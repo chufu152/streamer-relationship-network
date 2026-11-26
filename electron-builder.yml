@@ -1,0 +1,29 @@
+appId: com.chufu.relationship-network
+productName: 人物交际网
+executableName: relationship-network
+asar: true
+directories:
+  output: release
+  buildResources: resources
+files:
+  - out/**/*
+  - package.json
+asarUnpack:
+  - node_modules/@img/**/*
+  - node_modules/sharp/**/*
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  icon: resources/icon.ico
+  artifactName: relationship-network-${version}-${arch}-setup.${ext}
+nsis:
+  oneClick: false
+  perMachine: false
+  allowElevation: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  runAfterFinish: false
+  deleteAppDataOnUninstall: false
