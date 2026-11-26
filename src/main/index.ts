@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { APP_INFO_CHANNEL, type AppInfo } from '../shared/contracts';
 import { isAllowedResource, validateDevelopmentUrl } from './security';
+import { registerProjectIpc } from './project-ipc';
 
 const developmentUrl = !app.isPackaged && process.env.ELECTRON_RENDERER_URL
   ? validateDevelopmentUrl(process.env.ELECTRON_RENDERER_URL)
@@ -30,6 +31,7 @@ async function createWindow(): Promise<void> {
     },
   });
   const window = mainWindow;
+  registerProjectIpc(window, rendererUrl);
   window.once('ready-to-show', () => window.show());
   window.on('closed', () => { mainWindow = null; });
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));

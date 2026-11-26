@@ -1,3 +1,5 @@
+import type { DesktopFileApi } from './file-contracts';
+
 export const APP_INFO_CHANNEL = 'app:get-info';
 
 export type AppInfo = {
@@ -6,6 +8,6 @@ export type AppInfo = {
   platform: string;
 };
 
-export type DesktopApi = {
+export type DesktopApi = DesktopFileApi & {
   getAppInfo: () => Promise<AppInfo>;
 };

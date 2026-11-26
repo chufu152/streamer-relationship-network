@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { createEmptyProject, type NetworkProject } from '../shared/project';
+import { useProjectSession } from './useProjectSession';
 import { addPerson, deletePerson, setPersonPhoto, validateName } from '../shared/operations';
 import { GraphCanvas } from './GraphCanvas';
 import { Modal } from './Modal';
@@ -15,10 +15,10 @@ function NetworkMark() {
 }
 
 export function App() {
-  const [project, setProject] = useState(createEmptyProject);
-  const [revision, setRevision] = useState(0);
-  const [name, setName] = useState('');
+  const [photoBusy, setPhotoBusy] = useState(false);
   const [message, setMessage] = useState('');
+  const { project, revision, savedRevision, path, saving, transitioning, updateProject, saveProject, changeProject } = useProjectSession(window.desktop, setMessage, photoBusy);
+  const [name, setName] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draftName, setDraftName] = useState('');
@@ -26,7 +26,6 @@ export function App() {
   const [connectTarget, setConnectTarget] = useState('');
   const editingRelationship = project.relationships.find((relation) => relation.id === relationshipId);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [photoBusy, setPhotoBusy] = useState(false);
   const [connection, setConnection] = useState<Connection>(window.desktop ? 'connecting' : 'preview');
   const workspace = useRef<HTMLElement>(null);
   const nameInput = useRef<HTMLInputElement>(null);
@@ -43,9 +42,8 @@ export function App() {
     return () => { active = false; };
   }, []);
 
-  function updateProject(updater: (current: NetworkProject) => NetworkProject) {
-    setProject((current) => ({ ...updater(current), updatedAt: new Date().toISOString() }));
-    setRevision((current) => current + 1);
+  async function switchProject(action: 'new' | 'open') {
+    if (await changeProject(action)) { setSelectedId(null); setEditingId(null); setRelationshipId(null); setName(''); }
   }
 
   function editPerson(id: string) {
@@ -97,14 +95,14 @@ export function App() {
   const connectionLabel = { preview: '浏览器预览', connecting: '正在连接桌面环境…', connected: '桌面环境已连接', failed: '桌面连接失败，请重新启动应用' }[connection];
 
   return (
-    <div className="app-shell">
+    <div className="app-shell" inert={transitioning} aria-busy={saving || transitioning}>
       <header className="toolbar">
         <div className="identity"><span className="brand-mark"><NetworkMark /></span><span className="brand-name">人物交际网</span><span className="toolbar-divider" aria-hidden="true" />
-          <div className="project-heading"><span className="project-title">{project.title}</span><span className="project-state">{revision ? '未保存' : '空白项目'}</span></div>
+          <div className="project-heading"><span className="project-title" title={path || project.title}>{path ? path.split(/[\\/]/).at(-1) : project.title}</span><span className="project-state">{saving ? '正在保存…' : revision !== savedRevision ? '未保存' : path ? '已保存' : '空白项目'}</span></div>
         </div>
         <nav className="file-actions" aria-label="项目文件">
-          <button type="button" disabled title="本地文件操作将在 M5 启用">新建</button><button type="button" disabled title="本地文件操作将在 M5 启用">打开</button><button type="button" disabled title="本地文件操作将在 M5 启用">另存为</button>
-          <button className="save-button" type="button" disabled title="本地文件操作将在 M5 启用">保存<span className="shortcut" aria-hidden="true">Ctrl S</span></button>
+          <button type="button" disabled={!window.desktop || saving || photoBusy} onClick={() => void switchProject('new')}>新建</button><button type="button" disabled={!window.desktop || saving || photoBusy} onClick={() => void switchProject('open')}>打开</button><button type="button" disabled={!window.desktop || saving || photoBusy} onClick={() => void saveProject(true)}>另存为</button>
+          <button className="save-button" type="button" disabled={!window.desktop || saving || photoBusy} onClick={() => void saveProject()}>保存<span className="shortcut" aria-hidden="true">Ctrl S</span></button>
         </nav>
       </header>
       <main ref={workspace} className="workspace" aria-label="人物关系画布">
@@ -131,7 +129,7 @@ export function App() {
           <button type="submit" className="add-button">添加人物</button>
         </form><span id="stage-notice" className="stage-notice">长按人物移动 · 滚轮平移 · Ctrl + 滚轮缩放</span>
       </footer>
-      {message && <div className={`toast ${editingId ? 'in-dialog' : ''}`} role="alert">{message}</div>}
+      {message && <div className={`toast ${editingId || relationshipId ? 'in-dialog' : ''}`} role="alert">{message}</div>}
       {editingPerson && <Modal title="编辑人物" onClose={() => { if (!photoBusy) setEditingId(null); }}>
         <form onSubmit={(event) => { event.preventDefault(); try { const value = validateName(draftName); updateProject((current) => ({ ...current, people: current.people.map((person) => person.id === editingId ? { ...person, name: value } : person) })); setEditingId(null); setMessage(''); } catch (error) { setMessage((error as Error).message); } }}>
           <label className="field-label" htmlFor="edit-name">人物姓名</label><input id="edit-name" autoFocus value={draftName} onChange={(event) => setDraftName(event.target.value)} disabled={photoBusy} />
@@ -154,9 +152,13 @@ export function App() {
           <div className="modal-actions"><button type="button" disabled={photoBusy} onClick={() => setEditingId(null)}>取消</button><button className="primary" disabled={photoBusy}>应用姓名</button></div>
         </form>
       </Modal>}
-      {editingRelationship && <RelationshipEditor key={editingRelationship.id} project={project} relationship={editingRelationship}
-        onClose={() => setRelationshipId(null)}
-        onApply={(direction, label) => { updateProject((current) => ({ ...current, relationships: current.relationships.map((relation) => relation.id === relationshipId ? { ...relation, direction, label } : relation) })); setRelationshipId(null); setMessage('关系已更新，尚未保存到文件'); }}
+      {editingRelationship && <RelationshipEditor key={editingRelationship.id} project={project} relationship={editingRelationship} busy={saving} message={message}
+        onClose={() => { if (!saving) setRelationshipId(null); }}
+        onApply={async (direction, label) => {
+          updateProject((current) => ({ ...current, relationships: current.relationships.map((relation) => relation.id === relationshipId ? { ...relation, direction, label } : relation) }));
+          if (window.desktop) { if (await saveProject()) setRelationshipId(null); }
+          else { setRelationshipId(null); setMessage('关系已应用；请在桌面应用中保存到本地文件'); }
+        }}
         onDelete={() => { updateProject((current) => ({ ...current, relationships: current.relationships.filter((relation) => relation.id !== relationshipId) })); setRelationshipId(null); }} />}
     </div>
   );
