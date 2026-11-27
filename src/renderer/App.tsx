@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useProjectSession } from './useProjectSession';
-import { addPerson, deletePerson, setPersonPhoto, validateName } from '../shared/operations';
+import { addPerson, createBond, deleteBond, deletePerson, setPersonPhoto, toggleBondMember, validateName } from '../shared/operations';
 import { GraphCanvas } from './GraphCanvas';
+import { BondEditor } from './BondEditor';
 import { Modal } from './Modal';
 import { processPhoto } from './photo';
 import { fitPeople, toWorld, zoomAt } from '../shared/geometry';
@@ -26,6 +27,7 @@ export function App() {
   const [connectTarget, setConnectTarget] = useState('');
   const editingRelationship = project.relationships.find((relation) => relation.id === relationshipId);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [bondDialog, setBondDialog] = useState<{ bondId: string | null } | null>(null);
   const [connection, setConnection] = useState<Connection>(window.desktop ? 'connecting' : 'preview');
   const workspace = useRef<HTMLElement>(null);
   const nameInput = useRef<HTMLInputElement>(null);
@@ -137,7 +139,15 @@ export function App() {
           onViewport={(viewport) => updateProject((current) => ({ ...current, viewport }))}
           onConnect={connect} onEditRelationship={(id) => { setRelationshipId(id); setEditingId(null); setMessage(''); }} />
         {!project.people.length && <div className="empty-state"><h1>从第一个人物开始</h1><p>在下方输入名字，添加第一个人物。</p><span className="empty-note">右键人物或点击“编辑人物”，为他们添加照片。</span></div>}
-        {selectedId && <div className="selection-tools"><button onClick={() => editPerson(selectedId)}>编辑人物</button></div>}
+        <div className="selection-tools">
+          {project.bonds.length > 0 && <div className="bond-chips" aria-label="羁绊">
+            {project.bonds.map((bond) => <button type="button" key={bond.id} className="bond-chip" onClick={() => setBondDialog({ bondId: bond.id })} title={`查看羁绊 ${bond.name}`}>
+              <span className="bond-chip-name">{bond.name}</span><span className="bond-chip-count">{bond.memberIds.length}</span>
+            </button>)}
+          </div>}
+          {selectedId && <button onClick={() => editPerson(selectedId)}>编辑人物</button>}
+          <button onClick={() => setBondDialog({ bondId: null })}>增加羁绊</button>
+        </div>
         <div className="canvas-footer">
           <p className="graph-count" aria-label="画布统计"><span>{project.people.length} 人物</span><span className="count-divider" aria-hidden="true" /><span>{project.relationships.length} 关系</span></p>
           <div className="zoom-controls" role="group" aria-label="画布视图">
@@ -186,6 +196,11 @@ export function App() {
           setMessage(window.desktop ? '关系已更新，尚未写入文件' : '关系已更新');
         }}
         onDelete={() => { updateProject((current) => ({ ...current, relationships: current.relationships.filter((relation) => relation.id !== relationshipId) })); setRelationshipId(null); }} />}
+      {bondDialog && <BondEditor project={project} bondId={bondDialog.bondId}
+        onClose={() => setBondDialog(null)}
+        onCreate={(id, name) => updateProject((current) => createBond(current, name, id))}
+        onToggleMember={(bondId, personId) => updateProject((current) => toggleBondMember(current, bondId, personId))}
+        onDelete={(id) => { updateProject((current) => deleteBond(current, id)); setBondDialog({ bondId: null }); }} />}
     </div>
   );
 }

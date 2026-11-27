@@ -75,6 +75,24 @@ describe('project schema', () => {
     expect(projectSchema.safeParse(project).success).toBe(false);
   });
 
+  it('accepts bonds and rejects broken references, duplicate members and duplicate ids', () => {
+    const project = populatedProject();
+    project.bonds = [{ id: crypto.randomUUID(), name: '家人', memberIds: [project.people[0].id, project.people[1].id] }];
+    expect(projectSchema.safeParse(project).success).toBe(true);
+    project.bonds[0].memberIds.push(crypto.randomUUID());
+    expect(projectSchema.safeParse(project).success).toBe(false);
+    project.bonds[0].memberIds = [project.people[0].id, project.people[0].id];
+    expect(projectSchema.safeParse(project).success).toBe(false);
+    project.bonds.push({ ...project.bonds[0] });
+    expect(projectSchema.safeParse(project).success).toBe(false);
+  });
+
+  it('defaults missing bonds to an empty array so older files stay readable', () => {
+    const legacy = JSON.parse(JSON.stringify(populatedProject()));
+    delete legacy.bonds;
+    expect(projectSchema.parse(legacy).bonds).toEqual([]);
+  });
+
   it('rejects unsupported versions and unknown fields', () => {
     expect(projectSchema.safeParse({ ...createEmptyProject(), schemaVersion: 2 }).success).toBe(false);
     expect(projectSchema.safeParse({ ...createEmptyProject(), executable: 'unexpected' }).success).toBe(false);

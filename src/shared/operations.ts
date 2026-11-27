@@ -1,4 +1,4 @@
-import { personSchema, PROJECT_LIMITS, type NetworkProject, type PhotoAsset } from './project';
+import { bondSchema, personSchema, PROJECT_LIMITS, type NetworkProject, type PhotoAsset } from './project';
 
 export function validateName(value: string): string {
   const name = value.trim();
@@ -29,7 +29,28 @@ export function deletePerson(project: NetworkProject, id: string): NetworkProjec
   return removeUnusedAssets({ ...project,
     people: project.people.filter((person) => person.id !== id),
     relationships: project.relationships.filter((relation) => relation.sourceId !== id && relation.targetId !== id),
+    bonds: project.bonds.map((bond) => ({ ...bond, memberIds: bond.memberIds.filter((member) => member !== id) })),
   });
+}
+
+export function createBond(project: NetworkProject, rawName: string, id: string = crypto.randomUUID()): NetworkProject {
+  if (project.bonds.length >= PROJECT_LIMITS.bonds) throw new Error(`羁绊最多 ${PROJECT_LIMITS.bonds} 个`);
+  const name = rawName.trim();
+  if (!bondSchema.shape.name.safeParse(name).success) throw new Error('羁绊名不能为空、超过 40 个字符或包含首尾空白');
+  return { ...project, bonds: [...project.bonds, { id, name, memberIds: [] }] };
+}
+
+export function deleteBond(project: NetworkProject, id: string): NetworkProject {
+  return { ...project, bonds: project.bonds.filter((bond) => bond.id !== id) };
+}
+
+export function toggleBondMember(project: NetworkProject, bondId: string, personId: string): NetworkProject {
+  return { ...project, bonds: project.bonds.map((bond) => bond.id !== bondId ? bond : {
+    ...bond,
+    memberIds: bond.memberIds.includes(personId)
+      ? bond.memberIds.filter((member) => member !== personId)
+      : [...bond.memberIds, personId],
+  }) };
 }
 
 export function setPersonPhoto(project: NetworkProject, id: string, asset: PhotoAsset | null): NetworkProject {

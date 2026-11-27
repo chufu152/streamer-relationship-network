@@ -18,6 +18,7 @@ function populatedProject(): NetworkProject {
     id: randomUUID(), name, x: index * 180 - 90, y: index * 60.5,
     photoAssetId: index === 0 ? project.assets[0].id : null,
   }));
+  project.bonds = [{ id: randomUUID(), name: '家人', memberIds: [project.people[0].id] }];
   project.relationships = (['forward', 'reverse', 'both'] as const).map((direction, index) => ({
     id: randomUUID(), sourceId: project.people[index].id, targetId: project.people[(index + 1) % 3].id,
     direction, label: ['同事', '朋友', '亲属'][index],
@@ -116,6 +117,7 @@ describe('project file reads and validation', () => {
     ['fake WebP bytes', (project) => { project.assets[0].dataBase64 = 'AAAA'; }],
     ['false photo dimensions', (project) => { project.assets[0].width = project.assets[0].height = 256; }],
     ['invalid unreferenced asset', (project) => { project.assets.push({ ...project.assets[0], id: randomUUID(), dataBase64: 'AAAA' }); }],
+    ['broken bond reference', (project) => { project.bonds[0].memberIds[0] = randomUUID(); }],
   ];
 
   it.each(invalidProjects)('validates %s on both input paths', async (_name, invalidate) => {

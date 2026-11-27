@@ -3,6 +3,7 @@ import { z } from 'zod';
 export const PROJECT_LIMITS = {
   people: 200,
   relationships: 400,
+  bonds: 50,
   nameCodePoints: 40,
   assetBytes: 256 * 1024,
   fileBytes: 80 * 1024 * 1024,
@@ -33,6 +34,12 @@ export const relationshipSchema = z.strictObject({
   label: label.refine((value) => value === value.trim(), '关系名称不能包含首尾空白'),
 });
 
+export const bondSchema = z.strictObject({
+  id: z.uuid(),
+  name,
+  memberIds: z.array(z.uuid()).max(PROJECT_LIMITS.people),
+});
+
 export const photoAssetSchema = z.strictObject({
   id: z.uuid(),
   mimeType: z.literal('image/webp'),
@@ -59,8 +66,9 @@ export const projectSchema = z.strictObject({
   people: z.array(personSchema).max(PROJECT_LIMITS.people),
   relationships: z.array(relationshipSchema).max(PROJECT_LIMITS.relationships),
   assets: z.array(photoAssetSchema).max(PROJECT_LIMITS.people),
+  bonds: z.array(bondSchema).max(PROJECT_LIMITS.bonds).default([]),
 }).superRefine((project, context) => {
-  for (const key of ['people', 'relationships', 'assets'] as const) {
+  for (const key of ['people', 'relationships', 'assets', 'bonds'] as const) {
     const ids = new Set<string>();
     project[key].forEach((item, index) => {
       if (ids.has(item.id)) context.addIssue({ code: 'custom', path: [key, index, 'id'], message: 'ID 重复' });
@@ -88,10 +96,19 @@ export const projectSchema = z.strictObject({
     if (pairs.has(pair)) context.addIssue({ code: 'custom', path: ['relationships', index], message: '关系重复' });
     pairs.add(pair);
   });
+  project.bonds.forEach((bond, index) => {
+    const members = new Set<string>();
+    bond.memberIds.forEach((memberId, memberIndex) => {
+      if (!people.has(memberId)) context.addIssue({ code: 'custom', path: ['bonds', index, 'memberIds', memberIndex], message: '羁绊成员不存在' });
+      if (members.has(memberId)) context.addIssue({ code: 'custom', path: ['bonds', index, 'memberIds', memberIndex], message: '羁绊成员重复' });
+      members.add(memberId);
+    });
+  });
 });
 
 export type Person = z.infer<typeof personSchema>;
 export type Relationship = z.infer<typeof relationshipSchema>;
+export type Bond = z.infer<typeof bondSchema>;
 export type PhotoAsset = z.infer<typeof photoAssetSchema>;
 export type NetworkProject = z.infer<typeof projectSchema>;
 export type Direction = Relationship['direction'];
@@ -108,6 +125,7 @@ export function createEmptyProject(): NetworkProject {
     viewport: { panX: 0, panY: 0, zoom: 1 },
     people: [],
     relationships: [],
+    bonds: [],
     assets: [],
   };
 }

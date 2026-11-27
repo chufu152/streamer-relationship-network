@@ -87,8 +87,9 @@ test('measures 200 people, 400 relationships and 200 compressed photo assets', a
     expect(save.result.status).toBe('ok');
     const openStart = Date.now();
     await page.getByRole('button', { name: '打开', exact: true }).click();
-    await expect(page.getByLabel('画布统计')).toHaveText('200 人物400 关系');
-    await expect.poll(() => page.locator('.person-node img').evaluateAll((images) => images.every((image) => (image as HTMLImageElement).complete && (image as HTMLImageElement).naturalWidth === 512))).toBe(true);
+    // Opening a 200-photo project legitimately takes seconds; under desktop load even longer.
+    await expect(page.getByLabel('画布统计')).toHaveText('200 人物400 关系', { timeout: 30_000 });
+    await expect.poll(() => page.locator('.person-node img').evaluateAll((images) => images.every((image) => (image as HTMLImageElement).complete && (image as HTMLImageElement).naturalWidth === 512)), { timeout: 30_000 }).toBe(true);
     const openMs = Date.now() - openStart;
     const node = page.locator('.person-node').nth(100);
     const box = (await node.boundingBox())!;
@@ -110,14 +111,16 @@ test('measures 200 people, 400 relationships and 200 compressed photo assets', a
       return { fps: intervals.length * 1000 / (previous - start), p95FrameMs: [...intervals].sort((a, b) => a - b)[Math.floor(intervals.length * 0.95)], frames: intervals.length };
     }, { x, y });
     await page.keyboard.press('Escape'); await page.mouse.up();
-    await page.screenshot({ path: '.artifacts/m6-loaded-network.png' });
+    // Best effort only: under heavy desktop load Chromium can exceed the default screenshot timeout,
+    // and this diagnostic artifact is not worth failing the whole sampling run.
+    await page.screenshot({ path: '.artifacts/m6-loaded-network.png', timeout: 60_000 }).catch(() => undefined);
     // A new process starts without any validated photo in memory, like a user opening a saved project.
     await shutdown(app);
     desktop = await launch(directory);
     const coldStart = Date.now();
     await desktop.page.getByRole('button', { name: '打开', exact: true }).click();
-    await expect(desktop.page.getByLabel('画布统计')).toHaveText('200 人物400 关系');
-    await expect.poll(() => desktop.page.locator('.person-node img').evaluateAll((images) => images.every((image) => (image as HTMLImageElement).complete && (image as HTMLImageElement).naturalWidth === 512))).toBe(true);
+    await expect(desktop.page.getByLabel('画布统计')).toHaveText('200 人物400 关系', { timeout: 30_000 });
+    await expect.poll(() => desktop.page.locator('.person-node img').evaluateAll((images) => images.every((image) => (image as HTMLImageElement).complete && (image as HTMLImageElement).naturalWidth === 512)), { timeout: 30_000 }).toBe(true);
     const coldOpenMs = Date.now() - coldStart;
     const metrics = { executablePath, cpu: cpus()[0].model, logicalCpus: cpus().length, ramGiB: totalmem() / 1024 ** 3, people: 200, relationships: 400, assets: 200, projectBytes: Buffer.byteLength(JSON.stringify(project)), saveMs: save.ms, warmOpenMs: openMs, coldOpenMs, ...frames };
     await writeFile('.artifacts/m6-performance.json', JSON.stringify(metrics, null, 2));

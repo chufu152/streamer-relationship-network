@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addPerson, deletePerson, setPersonPhoto, validateName } from '../../src/shared/operations';
+import { addPerson, createBond, deleteBond, deletePerson, setPersonPhoto, toggleBondMember, validateName } from '../../src/shared/operations';
 import { createEmptyProject, type PhotoAsset } from '../../src/shared/project';
 
 describe('people operations', () => {
@@ -28,5 +28,39 @@ describe('people operations', () => {
     expect(project.people).toHaveLength(1);
     expect(project.assets).toHaveLength(0);
     expect(project.relationships).toHaveLength(0);
+  });
+});
+
+describe('bond operations', () => {
+  it('creates trimmed bonds and rejects empty, long and overflowing names/counts', () => {
+    let project = addPerson(createEmptyProject(), '人物甲', { x: 0, y: 0 });
+    project = createBond(project, ' 家人 ');
+    expect(project.bonds[0].name).toBe('家人');
+    expect(project.bonds[0].memberIds).toHaveLength(0);
+    expect(() => createBond(project, '   ')).toThrow(/羁绊名/);
+    expect(() => createBond(project, '人'.repeat(41))).toThrow(/羁绊名/);
+    let full = createEmptyProject();
+    for (let index = 0; index < 50; index++) full = createBond(full, `羁绊${index}`);
+    expect(() => createBond(full, '再多一个')).toThrow(/羁绊最多/);
+  });
+  it('keeps an explicitly provided bond id', () => {
+    const id = crypto.randomUUID();
+    const project = createBond(createEmptyProject(), '家人', id);
+    expect(project.bonds[0].id).toBe(id);
+  });
+  it('toggles membership, cascades person deletion and deletes bonds', () => {
+    let project = addPerson(createEmptyProject(), '人物甲', { x: 0, y: 0 });
+    project = addPerson(project, '人物乙', { x: 1, y: 1 });
+    project = createBond(project, '家人');
+    const bondId = project.bonds[0].id;
+    project = toggleBondMember(project, bondId, project.people[0].id);
+    expect(project.bonds[0].memberIds).toEqual([project.people[0].id]);
+    project = toggleBondMember(project, bondId, project.people[0].id);
+    expect(project.bonds[0].memberIds).toHaveLength(0);
+    project = toggleBondMember(project, bondId, project.people[1].id);
+    project = deletePerson(project, project.people[1].id);
+    expect(project.bonds[0].memberIds).toHaveLength(0);
+    project = deleteBond(project, bondId);
+    expect(project.bonds).toHaveLength(0);
   });
 });
