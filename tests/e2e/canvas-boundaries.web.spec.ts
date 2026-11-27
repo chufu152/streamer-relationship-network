@@ -89,7 +89,7 @@ async function previewOnBlank(page: Page, node: Locator) {
   return { ...press, drop, expected };
 }
 
-test('a quick drag neither moves the person nor leaves a delayed long-press', async ({ page }) => {
+test('a quick release neither moves the person nor leaves a delayed long-press; holding through early movement still drags', async ({ page }) => {
   const node = await addPerson(page);
   const start = await bounds(node);
   const grab = center(start);
@@ -109,16 +109,17 @@ test('a quick drag neither moves the person nor leaves a delayed long-press', as
   await page.clock.runFor(20);
   await expectPosition(node, start);
 
-  // Movement beyond the threshold also cancels the timer while the button stays down.
+  // Early movement no longer cancels the hold (gesture decision, 2026-11-27): after the 300 ms hold
+  // the drag activates with the original grab offset, and the release commits the move.
   await page.mouse.down();
   await page.clock.runFor(50);
   await page.mouse.move(drop.x, drop.y);
   await page.clock.runFor(400);
   const pointerId = Number(await page.getByTestId('graph-surface').getAttribute('data-test-pointer-id'));
-  expect(await hasCapture(page, pointerId)).toBe(false);
-  await expectPosition(node, start);
+  expect(await hasCapture(page, pointerId)).toBe(true);
+  await expectPosition(node, droppedPosition(start, grab, drop));
   await page.mouse.up();
-  await expectPosition(node, start);
+  await expectPosition(node, droppedPosition(start, grab, drop));
 });
 
 for (const zoom of [25, 200]) {
