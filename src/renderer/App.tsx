@@ -178,12 +178,12 @@ export function App() {
           <div className="modal-actions"><button type="button" disabled={photoBusy} onClick={() => setEditingId(null)}>取消</button><button className="primary" disabled={photoBusy}>应用姓名</button></div>
         </form>
       </Modal>}
-      {editingRelationship && <RelationshipEditor key={editingRelationship.id} project={project} relationship={editingRelationship} busy={saving} message={message}
-        onClose={() => { if (!saving) setRelationshipId(null); }}
-        onApply={async (direction, label) => {
+      {editingRelationship && <RelationshipEditor key={editingRelationship.id} project={project} relationship={editingRelationship} message={message}
+        onClose={() => setRelationshipId(null)}
+        onApply={(direction, label) => {
           updateProject((current) => ({ ...current, relationships: current.relationships.map((relation) => relation.id === relationshipId ? { ...relation, direction, label } : relation) }));
-          if (window.desktop) { if (await saveProject()) setRelationshipId(null); }
-          else { setRelationshipId(null); setMessage('关系已应用；请在桌面应用中保存到本地文件'); }
+          setRelationshipId(null);
+          setMessage(window.desktop ? '关系已更新，尚未写入文件' : '关系已更新');
         }}
         onDelete={() => { updateProject((current) => ({ ...current, relationships: current.relationships.filter((relation) => relation.id !== relationshipId) })); setRelationshipId(null); }} />}
     </div>

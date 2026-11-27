@@ -333,10 +333,15 @@ test('offline local save restores photos, all relationship directions and viewpo
       const relationEditor = page.getByRole('dialog', { name: '编辑关系', exact: true });
       await relationEditor.getByLabel(relation.radio, { exact: true }).check();
       await relationEditor.getByLabel('关系名称', { exact: true }).fill(relation.label);
-      if (index === 0) await queueDialogs(app, { kind: 'save', path: primary });
-      // Desktop 保存 must write the WHOLE project, not merely apply a relation to memory.
+      // The relation editor only applies this relation to the canvas (user decision, 2026-11-27);
+      // writing the file is reserved for the project-level save below.
       await relationEditor.getByRole('button', { name: '保存', exact: true }).click();
       await expect(relationEditor).not.toBeVisible();
+      await expect(page.getByRole('alert')).toHaveText('关系已更新，尚未写入文件');
+      await expect(page.locator('.project-state')).toContainText('未保存');
+      if (index === 0) await queueDialogs(app, { kind: 'save', path: primary });
+      // Ctrl+S must write the WHOLE project, not merely the applied relation.
+      await page.keyboard.press('Control+s');
       await expectSaved(desktop, primary, (project) => {
         expect(project.people).toHaveLength(3);
         expect(project.assets).toHaveLength(1);

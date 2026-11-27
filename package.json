@@ -1,6 +1,6 @@
 {
   "name": "streamer-relationship-network",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "离线人物交际网桌面应用",
   "private": true,
   "type": "module",

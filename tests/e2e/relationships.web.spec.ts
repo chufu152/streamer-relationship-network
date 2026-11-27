@@ -21,7 +21,7 @@ test('connects by dragging, restores source, edits directions, and deduplicates'
   await edge.dispatchEvent('contextmenu');
   await page.getByLabel('A → B', { exact: true }).check();
   await page.getByLabel('关系名称', { exact: true }).fill('同事');
-  await page.getByRole('button', { name: '应用关系', exact: true }).click();
+  await page.getByRole('dialog', { name: '编辑关系' }).getByRole('button', { name: '保存', exact: true }).click();
   await expect(edge).toHaveAccessibleName('关系 人物甲 → 人物乙：同事');
   await expect(edge.locator('path').first()).toHaveAttribute('marker-end', 'url(#arrow-end)');
   await expect(edge.locator('path').first()).not.toHaveAttribute('marker-start');
@@ -33,7 +33,7 @@ test('connects by dragging, restores source, edits directions, and deduplicates'
   await expect(page.getByLabel('画布统计')).toHaveText('2 人物1 关系');
   await edge.dispatchEvent('contextmenu');
   await page.getByLabel('A ← B', { exact: true }).check();
-  await page.getByRole('button', { name: '应用关系', exact: true }).click();
+  await page.getByRole('dialog', { name: '编辑关系' }).getByRole('button', { name: '保存', exact: true }).click();
   await expect(edge).toHaveAccessibleName('关系 人物甲 ← 人物乙：同事');
   await page.screenshot({ path: `.artifacts/m4-relationships-${testInfo.project.name}.png` });
   await edge.focus(); await page.keyboard.press('Enter');
