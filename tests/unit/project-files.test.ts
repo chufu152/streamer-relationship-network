@@ -356,4 +356,25 @@ describe('safe project replacement', () => {
     expect(await readProjectFile(target)).toEqual(project);
     expect(await readProjectFile(`${target}.bak`)).toEqual(snapshot);
   });
+
+  it('revalidates a target that changed outside this process before replacing it', async () => {
+    await writeProjectFile(target, populatedProject());
+    const external = populatedProject();
+    await fs.writeFile(target, JSON.stringify(external));
+    await fs.writeFile(join(directory, 'unknown.tmp'), 'do not touch');
+    await writeProjectFile(target, { ...populatedProject(), title: '覆盖外部修改' });
+    expect((await readProjectFile(target)).title).toBe('覆盖外部修改');
+    expect((await readProjectFile(`${target}.bak`)).title).toBe(external.title);
+    await expectNoOwnedTemps();
+  });
+
+  it('still refuses a target corrupted outside this process after an earlier save', async () => {
+    await writeProjectFile(target, populatedProject());
+    await fs.writeFile(target, '{broken');
+    const open = vi.spyOn(fs, 'open');
+    await expect(writeProjectFile(target, populatedProject())).rejects.toThrow(/拒绝覆盖.*另存为/);
+    expect(open).not.toHaveBeenCalled();
+    expect(await fs.readFile(target, 'utf8')).toBe('{broken');
+    expect(await fs.readdir(directory)).toEqual(['project.srn']);
+  });
 });

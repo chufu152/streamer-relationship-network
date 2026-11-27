@@ -34,3 +34,21 @@ test('zooms, pans, and fits while keeping the node usable', async ({ page }, tes
   await expect(page.getByRole('textbox', { name: '人物姓名', exact: true })).toHaveValue('含 空格');
   await page.screenshot({ path: `.artifacts/m3-canvas-${testInfo.project.name}.png` });
 });
+
+test('arrow keys nudge the selected person, but not while typing in the name input', async ({ page }) => {
+  await page.goto('/');
+  const input = page.getByRole('textbox', { name: '人物姓名', exact: true });
+  await input.fill('微调人物');
+  await page.getByRole('button', { name: '添加人物' }).click();
+  const node = page.getByRole('button', { name: '人物 微调人物', exact: true });
+  await node.click();
+  const start = (await node.boundingBox())!;
+  await page.keyboard.press('ArrowRight');
+  await expect.poll(async () => Math.round((await node.boundingBox())!.x - start.x)).toBe(10);
+  await page.keyboard.press('Shift+ArrowLeft');
+  await expect.poll(async () => Math.round((await node.boundingBox())!.x - start.x)).toBe(9);
+  await input.click();
+  await page.keyboard.press('ArrowRight');
+  await page.waitForTimeout(150);
+  expect(Math.round((await node.boundingBox())!.x - start.x)).toBe(9);
+});

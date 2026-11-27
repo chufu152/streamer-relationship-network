@@ -42,3 +42,18 @@ test('composition Enter does not create a person', async ({ page }) => {
   await input.press('Enter');
   await expect(page.getByLabel('画布统计')).toHaveText('1 人物0 关系');
 });
+
+test('F2 opens the editor of the selected person with the name focused', async ({ page }) => {
+  await page.goto('/');
+  const input = page.getByRole('textbox', { name: '人物姓名', exact: true });
+  await input.fill('键盘人物'); await input.press('Enter');
+  const person = page.getByRole('button', { name: '人物 键盘人物', exact: true });
+  await person.click();
+  await page.keyboard.press('F2');
+  const editor = page.getByRole('dialog', { name: '编辑人物', exact: true });
+  await expect(editor).toBeVisible();
+  await expect(page.locator('#edit-name')).toBeFocused();
+  await page.getByRole('button', { name: '取消', exact: true }).click();
+  await expect(editor).not.toBeVisible();
+  await expect(person).toBeVisible();
+});

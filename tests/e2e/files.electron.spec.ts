@@ -347,6 +347,7 @@ test('offline local save restores photos, all relationship directions and viewpo
         });
       });
     }
+    expect(await page.title()).toBe('本地项目.srn — 人物交际网');
     const saved = await readProject(primary);
     expect(saved.people.map(({ id, name }) => ({ id, name: `人物 ${name}` }))).toEqual(beforeSave.people.map(({ id, name }) => ({ id, name })));
     for (const [index, person] of saved.people.entries()) expectPointNear(person, beforeSave.people[index]);
@@ -363,6 +364,7 @@ test('offline local save restores photos, all relationship directions and viewpo
     await expect(page.getByLabel('画布统计')).toHaveText('0 人物0 关系');
     await expect(page.locator('.zoom-value')).toHaveText('100%');
     await expect(page.locator('.person-node img')).toHaveCount(0);
+    expect(await page.title()).toBe('人物交际网');
     await queueDialogs(app, { kind: 'open', path: primary });
     await fileButton(page, '打开').click();
     await expect(page.getByRole('alert')).toHaveText('项目已打开');
@@ -371,6 +373,7 @@ test('offline local save restores photos, all relationship directions and viewpo
     await expectDialogsConsumed(app);
 
     await addPerson(page, '快捷键新增人物');
+    expect(await page.title()).toBe('● 本地项目.srn — 人物交际网');
     await page.keyboard.press('Control+s');
     await expectSaved(desktop, primary, (project) => {
       expect(project.people.map((person) => person.name)).toEqual([...saved.people.map((person) => person.name), '快捷键新增人物']);

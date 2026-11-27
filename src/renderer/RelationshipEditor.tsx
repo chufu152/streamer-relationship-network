@@ -22,7 +22,7 @@ export function RelationshipEditor({ project, relationship, busy, message, onApp
       <fieldset className="editor-fields" disabled={busy}>
       <p className="field-hint endpoint-names">A：{source.name} · {source.id.slice(0, 8)}<br />B：{target.name} · {target.id.slice(0, 8)}</p>
       <fieldset className="direction-options"><legend>箭头方向</legend>
-        {([['forward', 'A → B'], ['reverse', 'A ← B'], ['both', 'A ↔ B']] as const).map(([value, text]) => <label key={value}><input type="radio" name="direction" value={value} checked={direction === value} onChange={() => setDirection(value)} />{text}</label>)}
+        {([['forward', 'A → B'], ['reverse', 'A ← B'], ['both', 'A ↔ B']] as const).map(([value, text], index) => <label key={value}><input type="radio" name="direction" value={value} checked={direction === value} onChange={() => setDirection(value)} data-autofocus={index === 0 || undefined} />{text}</label>)}
       </fieldset>
       <p className="field-hint">A、B 固定对应上述人物，不随画布左右位置改变。</p>
       <label htmlFor="relationship-label" className="field-label">关系名称</label>

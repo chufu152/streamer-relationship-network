@@ -42,6 +42,32 @@ export function App() {
     return () => { active = false; };
   }, []);
 
+  // The window title carries what the in-page toolbar shows: which file is open and whether it is dirty.
+  useEffect(() => {
+    document.title = (path ? `${revision !== savedRevision ? '● ' : ''}${path.split(/[\\/]/).at(-1)} — ` : '') + '人物交际网';
+  }, [path, revision, savedRevision]);
+
+  // Keyboard refinements: F2 renames the selected person, arrow keys nudge it (Shift = 1 px).
+  // They only apply while the focus is inside the canvas area, never while a dialog is open.
+  useEffect(() => {
+    const keydown = (event: KeyboardEvent) => {
+      if (document.querySelector('dialog[open]') || transitioning) return;
+      const target = event.target as HTMLElement | null;
+      if (!target || !target.closest('main') || !selectedId) return;
+      if (event.key === 'F2') { event.preventDefault(); editPerson(selectedId); return; }
+      const step = event.shiftKey ? 1 : 10;
+      const deltas: Record<string, { x: number; y: number } | undefined> = {
+        ArrowLeft: { x: -step, y: 0 }, ArrowRight: { x: step, y: 0 }, ArrowUp: { x: 0, y: -step }, ArrowDown: { x: 0, y: step },
+      };
+      const delta = deltas[event.key];
+      if (!delta) return;
+      event.preventDefault();
+      updateProject((current) => ({ ...current, people: current.people.map((person) => person.id === selectedId ? { ...person, x: person.x + delta.x / current.viewport.zoom, y: person.y + delta.y / current.viewport.zoom } : person) }));
+    };
+    window.addEventListener('keydown', keydown);
+    return () => window.removeEventListener('keydown', keydown);
+  });
+
   async function switchProject(action: 'new' | 'open') {
     if (await changeProject(action)) { setSelectedId(null); setEditingId(null); setRelationshipId(null); setName(''); }
   }
@@ -127,12 +153,12 @@ export function App() {
             onCompositionStart={() => { composing.current = true; }} onCompositionEnd={() => { composing.current = false; }}
             onKeyDown={(event) => { if (event.key === 'Enter' && (composing.current || event.nativeEvent.isComposing)) event.preventDefault(); }} aria-describedby="stage-notice" autoComplete="off" />
           <button type="submit" className="add-button">添加人物</button>
-        </form><span id="stage-notice" className="stage-notice">长按人物移动 · 滚轮平移 · Ctrl + 滚轮缩放</span>
+        </form><span id="stage-notice" className="stage-notice">长按人物移动 · 滚轮平移 · Ctrl + 滚轮缩放 · 方向键微调</span>
       </footer>
       {message && <div className={`toast ${editingId || relationshipId ? 'in-dialog' : ''}`} role="alert">{message}</div>}
       {editingPerson && <Modal title="编辑人物" onClose={() => { if (!photoBusy) setEditingId(null); }}>
         <form onSubmit={(event) => { event.preventDefault(); try { const value = validateName(draftName); updateProject((current) => ({ ...current, people: current.people.map((person) => person.id === editingId ? { ...person, name: value } : person) })); setEditingId(null); setMessage(''); } catch (error) { setMessage((error as Error).message); } }}>
-          <label className="field-label" htmlFor="edit-name">人物姓名</label><input id="edit-name" autoFocus value={draftName} onChange={(event) => setDraftName(event.target.value)} disabled={photoBusy} />
+          <label className="field-label" htmlFor="edit-name">人物姓名</label><input id="edit-name" data-autofocus value={draftName} onChange={(event) => setDraftName(event.target.value)} disabled={photoBusy} />
           <p className="field-hint">支持重名，最多 40 个字符。人物身份不会因改名而改变。</p>
           <div className="photo-actions"><button type="button" disabled={photoBusy} onClick={() => fileInput.current?.click()}>{photoBusy ? '正在处理…' : editingPerson.photoAssetId ? '更换照片' : '上传照片'}</button>
             {editingPerson.photoAssetId && <button type="button" disabled={photoBusy} onClick={() => updateProject((current) => setPersonPhoto(current, editingPerson.id, null))}>移除照片</button>}

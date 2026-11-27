@@ -6,6 +6,9 @@ export function Modal({ title, onClose, children }: { title: string; onClose: ()
     const dialog = ref.current!;
     const previous = document.activeElement as HTMLElement | null;
     dialog.showModal();
+    // React strips the autofocus attribute, so showModal's own focusing lands on the first focusable
+    // element (the close button). Put the focus on the dialog's primary field instead.
+    dialog.querySelector<HTMLElement>('[data-autofocus]')?.focus();
     return () => { dialog.close(); previous?.focus(); };
   }, []);
   return (
