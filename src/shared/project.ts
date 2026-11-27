@@ -34,10 +34,13 @@ export const relationshipSchema = z.strictObject({
   label: label.refine((value) => value === value.trim(), '关系名称不能包含首尾空白'),
 });
 
+export const BOND_COLORS = ['#293e50', '#b03a2e', '#1e8449', '#2874a6', '#7d3c98', '#b9770e', '#148f77', '#c2185b', '#5a6a1a', '#5d6d7e'] as const;
+
 export const bondSchema = z.strictObject({
   id: z.uuid(),
   name,
   memberIds: z.array(z.uuid()).max(PROJECT_LIMITS.people),
+  color: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#293e50'),
 });
 
 export const photoAssetSchema = z.strictObject({

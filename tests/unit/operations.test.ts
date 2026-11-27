@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { addPerson, createBond, deleteBond, deletePerson, setPersonPhoto, toggleBondMember, validateName } from '../../src/shared/operations';
-import { createEmptyProject, type PhotoAsset } from '../../src/shared/project';
+import { addPerson, createBond, deleteBond, deletePerson, gatherBondMembers, renameBond, setBondColor, setPersonPhoto, toggleBondMember, validateName } from '../../src/shared/operations';
+import { BOND_COLORS, createEmptyProject, type PhotoAsset } from '../../src/shared/project';
 
 describe('people operations', () => {
   it('trims names, preserves duplicate identities, and avoids existing positions', () => {
@@ -62,5 +62,30 @@ describe('bond operations', () => {
     expect(project.bonds[0].memberIds).toHaveLength(0);
     project = deleteBond(project, bondId);
     expect(project.bonds).toHaveLength(0);
+  });
+  it('assigns palette colours, renames and recolours bonds', () => {
+    let project = createBond(createEmptyProject(), '家人');
+    expect(BOND_COLORS).toContain(project.bonds[0].color);
+    project = renameBond(project, project.bonds[0].id, '  亲友  ');
+    expect(project.bonds[0].name).toBe('亲友');
+    expect(() => renameBond(project, project.bonds[0].id, '   ')).toThrow(/羁绊名/);
+    project = setBondColor(project, project.bonds[0].id, '#b03a2e');
+    expect(project.bonds[0].color).toBe('#b03a2e');
+    expect(() => setBondColor(project, project.bonds[0].id, 'red')).toThrow(/颜色/);
+  });
+  it('gathers bond members into a compact grid and leaves non-members alone', () => {
+    let project = addPerson(createEmptyProject(), '人物甲', { x: 0, y: 0 });
+    project = addPerson(project, '人物乙', { x: 500, y: 400 });
+    project = addPerson(project, '人物丙', { x: 900, y: 0 });
+    project = createBond(project, '家人');
+    project = toggleBondMember(project, project.bonds[0].id, project.people[0].id);
+    project = toggleBondMember(project, project.bonds[0].id, project.people[1].id);
+    project = gatherBondMembers(project, project.bonds[0].id);
+    const [a, b, c] = project.people;
+    expect(a.x).toBe(175); expect(a.y).toBe(200);
+    expect(b.x).toBe(325); expect(b.y).toBe(200);
+    expect(c.x).toBe(900); expect(c.y).toBe(0);
+    project = toggleBondMember(project, project.bonds[0].id, project.people[0].id);
+    expect(project.people[0].x).toBe(175);
   });
 });

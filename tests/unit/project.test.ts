@@ -77,7 +77,7 @@ describe('project schema', () => {
 
   it('accepts bonds and rejects broken references, duplicate members and duplicate ids', () => {
     const project = populatedProject();
-    project.bonds = [{ id: crypto.randomUUID(), name: '家人', memberIds: [project.people[0].id, project.people[1].id] }];
+    project.bonds = [{ id: crypto.randomUUID(), name: '家人', memberIds: [project.people[0].id, project.people[1].id], color: '#293e50' }];
     expect(projectSchema.safeParse(project).success).toBe(true);
     project.bonds[0].memberIds.push(crypto.randomUUID());
     expect(projectSchema.safeParse(project).success).toBe(false);
@@ -91,6 +91,15 @@ describe('project schema', () => {
     const legacy = JSON.parse(JSON.stringify(populatedProject()));
     delete legacy.bonds;
     expect(projectSchema.parse(legacy).bonds).toEqual([]);
+  });
+
+  it('defaults the bond colour and rejects invalid colours', () => {
+    const input = JSON.parse(JSON.stringify({ ...populatedProject(), bonds: [{ id: crypto.randomUUID(), name: '家人', memberIds: [] }] }));
+    delete input.bonds[0].color;
+    input.bonds[0].memberIds.push(input.people[0].id);
+    expect(projectSchema.parse(input).bonds[0].color).toBe('#293e50');
+    input.bonds[0].color = 'red';
+    expect(projectSchema.safeParse(input).success).toBe(false);
   });
 
   it('rejects unsupported versions and unknown fields', () => {

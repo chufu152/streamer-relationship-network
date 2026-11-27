@@ -1,4 +1,4 @@
-import { bondSchema, personSchema, PROJECT_LIMITS, type NetworkProject, type PhotoAsset } from './project';
+import { BOND_COLORS, bondSchema, personSchema, PROJECT_LIMITS, type NetworkProject, type Person, type PhotoAsset } from './project';
 
 export function validateName(value: string): string {
   const name = value.trim();
@@ -37,7 +37,38 @@ export function createBond(project: NetworkProject, rawName: string, id: string 
   if (project.bonds.length >= PROJECT_LIMITS.bonds) throw new Error(`羁绊最多 ${PROJECT_LIMITS.bonds} 个`);
   const name = rawName.trim();
   if (!bondSchema.shape.name.safeParse(name).success) throw new Error('羁绊名不能为空、超过 40 个字符或包含首尾空白');
-  return { ...project, bonds: [...project.bonds, { id, name, memberIds: [] }] };
+  const color = BOND_COLORS[project.bonds.length % BOND_COLORS.length];
+  return { ...project, bonds: [...project.bonds, { id, name, memberIds: [], color }] };
+}
+
+export function renameBond(project: NetworkProject, id: string, rawName: string): NetworkProject {
+  const name = rawName.trim();
+  if (!bondSchema.shape.name.safeParse(name).success) throw new Error('羁绊名不能为空、超过 40 个字符或包含首尾空白');
+  return { ...project, bonds: project.bonds.map((bond) => bond.id === id ? { ...bond, name } : bond) };
+}
+
+export function setBondColor(project: NetworkProject, id: string, color: string): NetworkProject {
+  if (!bondSchema.shape.color.safeParse(color).success) throw new Error('羁绊颜色无效');
+  return { ...project, bonds: project.bonds.map((bond) => bond.id === id ? { ...bond, color } : bond) };
+}
+
+export function gatherBondMembers(project: NetworkProject, bondId: string): NetworkProject {
+  const bond = project.bonds.find((item) => item.id === bondId);
+  if (!bond || bond.memberIds.length === 0) return project;
+  const byId = new Map(project.people.map((person) => [person.id, person]));
+  const members = bond.memberIds.map((member) => byId.get(member)).filter((person): person is Person => person !== undefined);
+  if (members.length === 0) return project;
+  // Compact rows of four around the members' current centroid, so the group forms where they already are.
+  const columns = Math.min(4, members.length);
+  const rows = Math.ceil(members.length / columns);
+  const centroidX = members.reduce((sum, person) => sum + person.x, 0) / members.length;
+  const centroidY = members.reduce((sum, person) => sum + person.y, 0) / members.length;
+  const moved = new Map(members.map((person, index) => {
+    const column = index % columns;
+    const row = Math.floor(index / columns);
+    return [person.id, { x: centroidX + (column - (columns - 1) / 2) * 150, y: centroidY + (row - (rows - 1) / 2) * 130 }] as const;
+  }));
+  return { ...project, people: project.people.map((person) => moved.has(person.id) ? { ...person, ...moved.get(person.id)! } : person) };
 }
 
 export function deleteBond(project: NetworkProject, id: string): NetworkProject {

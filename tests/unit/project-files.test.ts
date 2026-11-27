@@ -18,7 +18,7 @@ function populatedProject(): NetworkProject {
     id: randomUUID(), name, x: index * 180 - 90, y: index * 60.5,
     photoAssetId: index === 0 ? project.assets[0].id : null,
   }));
-  project.bonds = [{ id: randomUUID(), name: '家人', memberIds: [project.people[0].id] }];
+  project.bonds = [{ id: randomUUID(), name: '家人', memberIds: [project.people[0].id], color: '#293e50' }];
   project.relationships = (['forward', 'reverse', 'both'] as const).map((direction, index) => ({
     id: randomUUID(), sourceId: project.people[index].id, targetId: project.people[(index + 1) % 3].id,
     direction, label: ['同事', '朋友', '亲属'][index],

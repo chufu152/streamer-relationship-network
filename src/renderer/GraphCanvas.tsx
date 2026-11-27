@@ -41,10 +41,30 @@ export function GraphCanvas({ project, selectedId, onSelect, onEditPerson, onMov
   const selectPerson = useCallback((id: string) => latest.current.onSelect(id), []);
   const editPerson = useCallback((id: string) => latest.current.onEditPerson(id), []);
   const people = project.people.map((person) => preview?.id === person.id ? { ...person, ...preview.point } : person);
+  // Dashed enclosure per bond (>= 2 members): follows members live, including the drag preview.
+  const regions = project.bonds.map((bond) => {
+    const members = people.filter((person) => bond.memberIds.includes(person.id));
+    if (members.length < 2) return null;
+    let left = Infinity; let top = Infinity; let right = -Infinity; let bottom = -Infinity;
+    for (const person of members) {
+      const halfWidth = (person.photoAssetId ? 80 : 128) / 2;
+      const halfHeight = person.photoAssetId ? 40 : 32;
+      left = Math.min(left, person.x - halfWidth); right = Math.max(right, person.x + halfWidth);
+      top = Math.min(top, person.y - halfHeight); bottom = Math.max(bottom, person.y + halfHeight);
+    }
+    const pad = 26;
+    return { id: bond.id, name: bond.name, color: bond.color, x: left - pad, y: top - pad, width: right - left + pad * 2, height: bottom - top + pad * 2 };
+  }).filter((region): region is NonNullable<typeof region> => region !== null);
   const { panX, panY, zoom } = project.viewport;
   return (
     <div ref={surface} className={`graph-surface ${panning ? 'is-panning' : ''}`} data-testid="graph-surface" {...handlers}>
       <div className="graph-world" style={{ transform: `translate(${panX}px, ${panY}px) scale(${zoom})` }}>
+      <svg className="bond-regions" aria-hidden="true">
+        {regions.map((region) => <g key={region.id}>
+          <rect x={region.x} y={region.y} width={region.width} height={region.height} rx={26} fill={region.color} fillOpacity={0.05} stroke={region.color} strokeDasharray="12 9" strokeWidth={2} />
+          <text className="bond-region-label" x={region.x + 16} y={region.y + 24} fill={region.color}>{region.name}</text>
+        </g>)}
+      </svg>
       <GraphEdges people={people} relationships={project.relationships} zoom={zoom} onEdit={onEditRelationship} />
       {people.map((person) => <PersonNode key={person.id} person={person} photo={person.photoAssetId ? photos.get(person.photoAssetId) : undefined}
         selected={selectedId === person.id || targetId === person.id} onSelect={selectPerson} onEdit={editPerson} />)}

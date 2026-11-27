@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useProjectSession } from './useProjectSession';
-import { addPerson, createBond, deleteBond, deletePerson, setPersonPhoto, toggleBondMember, validateName } from '../shared/operations';
+import { addPerson, createBond, deleteBond, deletePerson, gatherBondMembers, renameBond, setBondColor, setPersonPhoto, toggleBondMember, validateName } from '../shared/operations';
 import { GraphCanvas } from './GraphCanvas';
 import { BondEditor } from './BondEditor';
 import { Modal } from './Modal';
@@ -141,7 +141,7 @@ export function App() {
         {!project.people.length && <div className="empty-state"><h1>从第一个人物开始</h1><p>在下方输入名字，添加第一个人物。</p><span className="empty-note">右键人物或点击“编辑人物”，为他们添加照片。</span></div>}
         <div className="selection-tools">
           {project.bonds.length > 0 && <div className="bond-chips" aria-label="羁绊">
-            {project.bonds.map((bond) => <button type="button" key={bond.id} className="bond-chip" onClick={() => setBondDialog({ bondId: bond.id })} title={`查看羁绊 ${bond.name}`}>
+            {project.bonds.map((bond) => <button type="button" key={bond.id} className="bond-chip" style={{ borderColor: bond.color }} onClick={() => setBondDialog({ bondId: bond.id })} title={`查看羁绊 ${bond.name}`}>
               <span className="bond-chip-name">{bond.name}</span><span className="bond-chip-count">{bond.memberIds.length}</span>
             </button>)}
           </div>}
@@ -199,7 +199,13 @@ export function App() {
       {bondDialog && <BondEditor project={project} bondId={bondDialog.bondId}
         onClose={() => setBondDialog(null)}
         onCreate={(id, name) => updateProject((current) => createBond(current, name, id))}
-        onToggleMember={(bondId, personId) => updateProject((current) => toggleBondMember(current, bondId, personId))}
+        onRename={(bondId, name) => updateProject((current) => renameBond(current, bondId, name))}
+        onToggleMember={(bondId, personId) => updateProject((current) => {
+          const next = toggleBondMember(current, bondId, personId);
+          const bond = next.bonds.find((item) => item.id === bondId)!;
+          return bond.memberIds.includes(personId) ? gatherBondMembers(next, bondId) : next;
+        })}
+        onSetColor={(bondId, color) => updateProject((current) => setBondColor(current, bondId, color))}
         onDelete={(id) => { updateProject((current) => deleteBond(current, id)); setBondDialog({ bondId: null }); }} />}
     </div>
   );
