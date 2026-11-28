@@ -50,6 +50,17 @@ test('creates a bond, gathers members on canvas, renames, recolours and cascades
   await page.getByRole('button', { name: '删除人物', exact: true }).click();
   await page.getByRole('button', { name: '确认删除', exact: true }).click();
   await expect(page.locator('.bond-chip-count')).toHaveText('2');
+  // Right-clicking the dashed enclosure offers 编辑 and 删除 at the cursor.
+  const menuBox = (await page.locator('.bond-region-outline').first().boundingBox())!;
+  const menuPoint = { x: menuBox.x + menuBox.width / 2, y: menuBox.y + menuBox.height / 2 };
+  await page.mouse.click(menuPoint.x, menuPoint.y, { button: 'right' });
+  const menu = page.getByRole('menu', { name: '羁绊操作' });
+  await expect(menu).toBeVisible();
+  await menu.getByRole('menuitem', { name: '编辑', exact: true }).click();
+  const editDialog = page.getByRole('dialog', { name: '羁绊' });
+  await expect(editDialog).toBeVisible();
+  await editDialog.getByRole('button', { name: '完成', exact: true }).click();
+  await expect(menu).not.toBeVisible();
   // Hovering the dashed enclosure and pressing Delete removes the bond (people stay).
   const regionBox = (await page.locator('.bond-region-outline').first().boundingBox())!;
   await page.mouse.move(regionBox.x + regionBox.width - 2, regionBox.y + regionBox.height / 2);
