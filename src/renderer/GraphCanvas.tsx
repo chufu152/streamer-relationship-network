@@ -14,6 +14,7 @@ export type CanvasProps = {
   onConnect: (source: string, target: string) => void;
   onEditRelationship: (id: string) => void;
   onDeleteBond: (id: string) => void;
+  onDeleteEdge: (id: string) => void;
   onDropFile: (file: File) => void;
 };
 
@@ -31,7 +32,7 @@ export const PersonNode = memo(function PersonNode({ person, photo, selected, on
   );
 });
 
-export function GraphCanvas({ project, selectedId, onSelect, onEditPerson, onMove, onViewport, onConnect, onEditRelationship, onDeleteBond, onDropFile }: CanvasProps) {
+export function GraphCanvas({ project, selectedId, onSelect, onEditPerson, onMove, onViewport, onConnect, onEditRelationship, onDeleteBond, onDeleteEdge, onDropFile }: CanvasProps) {
   const surface = useRef<HTMLDivElement>(null);
   const [hoverBondId, setHoverBondId] = useState<string | null>(null);
   const [dropActive, setDropActive] = useState(false);
@@ -89,7 +90,7 @@ export function GraphCanvas({ project, selectedId, onSelect, onEditPerson, onMov
           <text className="bond-region-label" x={region.cx} y={region.cy - region.ry + 24} textAnchor="middle" fill={region.color}>{region.name}</text>
         </g>)}
       </svg>
-      <GraphEdges people={people} relationships={project.relationships} zoom={zoom} onEdit={onEditRelationship} />
+      <GraphEdges people={people} relationships={project.relationships} zoom={zoom} onEdit={onEditRelationship} onDeleteEdge={onDeleteEdge} />
       {people.map((person) => <PersonNode key={person.id} person={person} photo={person.photoAssetId ? photos.get(person.photoAssetId) : undefined}
         selected={selectedId === person.id || targetId === person.id} onSelect={selectPerson} onEdit={editPerson} />)}
       </div>

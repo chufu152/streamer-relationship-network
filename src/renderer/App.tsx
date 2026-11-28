@@ -150,7 +150,9 @@ export function App() {
           onMove={(id, point) => updateProject((current) => ({ ...current, people: current.people.map((person) => person.id === id ? { ...person, ...point } : person) }))}
           onViewport={(viewport) => updateProject((current) => ({ ...current, viewport }))}
           onConnect={connect} onEditRelationship={(id) => { setRelationshipId(id); setEditingId(null); setMessage(''); }}
-          onDeleteBond={(id) => updateProject((current) => deleteBond(current, id))} onDropFile={dropFile} />
+          onDeleteBond={(id) => updateProject((current) => deleteBond(current, id))}
+          onDeleteEdge={(id) => updateProject((current) => ({ ...current, relationships: current.relationships.filter((relation) => relation.id !== id) }))}
+          onDropFile={dropFile} />
         {!project.people.length && <div className="empty-state"><h1>从第一个人物开始</h1><p>在下方输入名字，添加第一个人物。</p><span className="empty-note">右键人物或点击“编辑人物”，为他们添加照片。</span></div>}
         <div className="selection-tools">
           {project.bonds.length > 0 && <div className="bond-chips" aria-label="羁绊">

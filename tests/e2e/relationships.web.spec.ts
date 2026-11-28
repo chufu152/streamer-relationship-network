@@ -42,6 +42,25 @@ test('connects by dragging, restores source, edits directions, and deduplicates'
   await expect(page.getByLabel('画布统计')).toHaveText('2 人物0 关系');
 });
 
+test('hovering a relationship line and pressing Delete removes it', async ({ page }) => {
+  await page.goto('/');
+  for (const name of ['人物甲', '人物乙']) {
+    await page.getByRole('textbox', { name: '人物姓名', exact: true }).fill(name);
+    await page.getByRole('button', { name: '添加人物' }).click();
+  }
+  await dragOnto(page, '人物甲', '人物乙');
+  await expect(page.getByLabel('画布统计')).toHaveText('2 人物1 关系');
+  const edge = page.locator('[data-relationship-id]');
+  const a = (await page.getByRole('button', { name: '人物 人物甲', exact: true }).boundingBox())!;
+  const b = (await page.getByRole('button', { name: '人物 人物乙', exact: true }).boundingBox())!;
+  await page.mouse.move((a.x + a.width / 2 + b.x + b.width / 2) / 2, (a.y + a.height / 2 + b.y + b.height / 2) / 2);
+  await page.keyboard.press('Delete');
+  await expect(page.getByLabel('画布统计')).toHaveText('2 人物0 关系');
+  await expect(edge).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '人物 人物甲', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: '人物 人物乙', exact: true })).toBeVisible();
+});
+
 test('connects through the person editor and cascades deletion', async ({ page }) => {
   await page.goto('/');
   for (const name of ['重名', '重名']) {
