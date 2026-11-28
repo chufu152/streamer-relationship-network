@@ -18,7 +18,7 @@ function NetworkMark() {
 export function App() {
   const [photoBusy, setPhotoBusy] = useState(false);
   const [message, setMessage] = useState('');
-  const { project, revision, savedRevision, path, saving, transitioning, updateProject, saveProject, changeProject } = useProjectSession(window.desktop, setMessage, photoBusy);
+  const { project, revision, savedRevision, path, saving, transitioning, updateProject, saveProject, changeProject, openProjectFromPath } = useProjectSession(window.desktop, setMessage, photoBusy);
   const [name, setName] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -72,6 +72,18 @@ export function App() {
 
   async function switchProject(action: 'new' | 'open') {
     if (await changeProject(action)) { setSelectedId(null); setEditingId(null); setRelationshipId(null); setName(''); }
+  }
+
+  async function openDropped(path: string) {
+    if (await openProjectFromPath(path)) { setSelectedId(null); setEditingId(null); setRelationshipId(null); setName(''); }
+  }
+
+  function dropFile(file: File) {
+    if (!window.desktop) { setMessage('浏览器预览不支持拖入文件，请在桌面应用中使用'); return; }
+    let dropped: string;
+    try { dropped = window.desktop.getPathForFile(file); } catch { dropped = ''; }
+    if (!/\.srn(?:\.bak)?$/i.test(dropped)) { setMessage('请拖入 .srn 或 .bak 项目文件'); return; }
+    void openDropped(dropped);
   }
 
   function editPerson(id: string) {
@@ -137,7 +149,8 @@ export function App() {
         <GraphCanvas project={project} selectedId={selectedId} onSelect={setSelectedId} onEditPerson={editPerson}
           onMove={(id, point) => updateProject((current) => ({ ...current, people: current.people.map((person) => person.id === id ? { ...person, ...point } : person) }))}
           onViewport={(viewport) => updateProject((current) => ({ ...current, viewport }))}
-          onConnect={connect} onEditRelationship={(id) => { setRelationshipId(id); setEditingId(null); setMessage(''); }} />
+          onConnect={connect} onEditRelationship={(id) => { setRelationshipId(id); setEditingId(null); setMessage(''); }}
+          onDeleteBond={(id) => updateProject((current) => deleteBond(current, id))} onDropFile={dropFile} />
         {!project.people.length && <div className="empty-state"><h1>从第一个人物开始</h1><p>在下方输入名字，添加第一个人物。</p><span className="empty-note">右键人物或点击“编辑人物”，为他们添加照片。</span></div>}
         <div className="selection-tools">
           {project.bonds.length > 0 && <div className="bond-chips" aria-label="羁绊">

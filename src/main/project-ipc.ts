@@ -73,6 +73,20 @@ export function registerProjectIpc(window: BrowserWindow, rendererUrl: string): 
     });
   });
 
+  ipcMain.handle(FILE_CHANNELS.openProjectAt, async (event, ...args: unknown[]): ReturnType<DesktopFileApi['openProjectAt']> => {
+    const error = requestError(event, args, 1);
+    if (error) return { status: 'error', message: error };
+    const dropped = args[0];
+    if (typeof dropped !== 'string' || !/\.srn(?:\.bak)?$/i.test(dropped)) return { status: 'error', message: '请拖入 .srn 或 .bak 项目文件。' };
+    return withFileLock(async (): ReturnType<DesktopFileApi['openProjectAt']> => {
+      const project = await readProjectFile(dropped);
+      if (window.isDestroyed()) return { status: 'cancelled' };
+      // Display the dropped backup path, but require Save As on the next save.
+      currentPath = extname(dropped).toLowerCase() === '.bak' ? undefined : dropped;
+      return { status: 'ok', value: { project, path: dropped } };
+    });
+  });
+
   ipcMain.handle(FILE_CHANNELS.saveProject, async (event, ...args: unknown[]): ReturnType<DesktopFileApi['saveProject']> => {
     const error = requestError(event, args, 2);
     if (error) return { status: 'error', message: error };
@@ -149,6 +163,7 @@ export function registerProjectIpc(window: BrowserWindow, rendererUrl: string): 
   window.once('closed', () => {
     for (const channel of [
       FILE_CHANNELS.openProject,
+      FILE_CHANNELS.openProjectAt,
       FILE_CHANNELS.saveProject,
       FILE_CHANNELS.resetProject,
       FILE_CHANNELS.confirmUnsaved,

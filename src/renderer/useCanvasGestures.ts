@@ -2,6 +2,9 @@ import { useEffect, useRef, useState, type PointerEvent, type RefObject } from '
 import { insidePerson, toWorld, zoomAt, type Point, type Viewport } from '../shared/geometry';
 import type { NetworkProject } from '../shared/project';
 
+// Centralised gesture thresholds (PRODUCT 4.4): tuned down from 300 ms for a more responsive feel.
+const LONG_PRESS_MS = 150;
+
 type Gesture = { kind: 'press' | 'drag' | 'pan'; pointerId: number; start: Point; origin: Point; pointer?: Point; personId?: string; viewport: Viewport };
 
 export function useCanvasGestures(surface: RefObject<HTMLDivElement | null>, project: NetworkProject, onMove: (id: string, point: Point) => void, onViewport: (view: Viewport) => void, onSelect: (id: string | null) => void, onConnect?: (source: string, target: string) => void) {
@@ -70,7 +73,7 @@ export function useCanvasGestures(surface: RefObject<HTMLDivElement | null>, pro
       timer.current = setTimeout(() => {
         const current = gesture.current;
         if (current?.kind === 'press') { current.kind = 'drag'; surface.current?.setPointerCapture(current.pointerId); suppressClick.current = true; setPreview({ id, point: dragPoint(current, current.pointer ?? current.start) }); }
-      }, 300);
+      }, LONG_PRESS_MS);
     } else { onSelect(null); return; }
     if (gesture.current?.kind === 'pan') surface.current!.setPointerCapture(event.pointerId);
   }
@@ -82,7 +85,11 @@ export function useCanvasGestures(surface: RefObject<HTMLDivElement | null>, pro
   function targetAt(pointer: Point, current: Gesture) {
     if (!onConnect) return undefined;
     const world = toWorld(pointer, current.viewport);
-    return [...project.people].reverse().find((person) => person.id !== current.personId && insidePerson(world, person))?.id;
+    for (let index = project.people.length - 1; index >= 0; index--) {
+      const person = project.people[index];
+      if (person.id !== current.personId && insidePerson(world, person)) return person.id;
+    }
+    return undefined;
   }
 
   function onPointerMove(event: PointerEvent<HTMLDivElement>) {

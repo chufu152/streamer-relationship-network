@@ -22,7 +22,7 @@ test('production desktop starts with sandboxed renderer and minimal bridge', asy
       process: typeof Reflect.get(window, 'process'),
       csp: document.querySelector('meta[http-equiv="Content-Security-Policy"]')?.getAttribute('content'),
     }));
-    expect(bridge.keys.sort()).toEqual(['approveClose', 'confirmUnsaved', 'getAppInfo', 'onCloseRequested', 'openProject', 'resetProject', 'saveProject']);
+    expect(bridge.keys.sort()).toEqual(['approveClose', 'confirmUnsaved', 'getAppInfo', 'getPathForFile', 'onCloseRequested', 'openProject', 'openProjectAt', 'resetProject', 'saveProject']);
     expect(bridge.info?.name).toBe('人物交际网');
     expect(bridge.node).toBe('undefined');
     expect(bridge.process).toBe('undefined');

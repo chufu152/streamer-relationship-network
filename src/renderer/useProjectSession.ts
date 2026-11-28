@@ -38,6 +38,25 @@ export function useProjectSession(api: DesktopFileApi | undefined, report: (mess
     finally { savingLock.current = false; setSaving(false); }
   }
 
+  function applyOpened(path: string, project: NetworkProject): void {
+    publish({ project, revision: 0, savedRevision: 0, path });
+    report(path.toLowerCase().endsWith('.bak') ? '已打开备份，下次保存将选择新路径，不覆盖备份' : '项目已打开');
+  }
+
+  async function openProjectFromPath(path: string): Promise<boolean> {
+    if (!api) { report('请在桌面应用中使用本地文件功能'); return false; }
+    if (savingLock.current || transitionLock.current || editingBusy) { report('正在处理，请完成后再打开项目'); return false; }
+    transitionLock.current = true; setTransitioning(true);
+    try {
+      const result = await api.openProjectAt(path);
+      if (result.status === 'cancelled') return false;
+      if (result.status === 'error') { report(result.message); return false; }
+      applyOpened(result.value.path, result.value.project);
+      return true;
+    } catch (error) { report(`文件操作失败：${(error as Error).message}`); return false; }
+    finally { transitionLock.current = false; setTransitioning(false); }
+  }
+
   async function changeProject(action: 'new' | 'open' | 'close'): Promise<boolean> {
     if (!api) { report('请在桌面应用中使用本地文件功能'); return false; }
     if (savingLock.current || transitionLock.current || editingBusy) { report('正在处理，请完成后再切换或关闭项目'); return false; }
@@ -53,8 +72,7 @@ export function useProjectSession(api: DesktopFileApi | undefined, report: (mess
         const result = await api.openProject();
         if (result.status === 'cancelled') return false;
         if (result.status === 'error') { report(result.message); return false; }
-        publish({ project: result.value.project, revision: 0, savedRevision: 0, path: result.value.path });
-        report(result.value.path.toLowerCase().endsWith('.bak') ? '已打开备份，下次保存将选择新路径，不覆盖备份' : '项目已打开');
+        applyOpened(result.value.path, result.value.project);
       } else {
         const result = await api.resetProject();
         if (result.status === 'error') { report(result.message); return false; }
@@ -78,5 +96,5 @@ export function useProjectSession(api: DesktopFileApi | undefined, report: (mess
     return () => window.removeEventListener('keydown', handler);
   });
 
-  return { ...state, saving, transitioning, updateProject, saveProject, changeProject };
+  return { ...state, saving, transitioning, updateProject, saveProject, changeProject, openProjectFromPath };
 }

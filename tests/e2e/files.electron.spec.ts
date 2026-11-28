@@ -4,7 +4,7 @@ import { chmod, mkdir, mkdtemp, readFile, readdir, realpath, rm, writeFile } fro
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { projectSchema, type NetworkProject } from '../../src/shared/project';
+import { createEmptyProject, projectSchema, type NetworkProject } from '../../src/shared/project';
 import type { Viewport } from '../../src/shared/geometry';
 
 // Exercise the integrated production build, never a renderer/file-API replacement.
@@ -606,5 +606,26 @@ test('Windows read-only replacement keeps the exact original, remains dirty and 
     await expectSaved(desktop, path, (project) => expect(project.people.map((person) => person.name)).toEqual(['只读前人物', '内存中新增人物']));
     expect(await readFile(`${path}.bak`)).toEqual(originalBytes);
     await expectNormalClose(desktop);
+  });
+});
+
+test('opens a .srn file dropped onto the canvas', async () => {
+  await withDesktop(async (desktop) => {
+    const { page, files } = desktop;
+    const dropped = join(files, '拖入项目.srn');
+    const project = { ...createEmptyProject(), people: [{ id: crypto.randomUUID(), name: '拖入人物', x: 120, y: 80, photoAssetId: null }] };
+    await writeFile(dropped, JSON.stringify(project));
+    // The bridge path validates the file, opens it and records it as the current save path.
+    const opened = await page.evaluate((path) => window.desktop?.openProjectAt(path), dropped);
+    expect(opened).toMatchObject({ status: 'ok', value: { path: dropped } });
+    // Canvas wiring: dragover highlights the surface, and a drop whose path cannot be resolved explains itself.
+    const surface = page.getByTestId('graph-surface');
+    await surface.dispatchEvent('dragover');
+    await expect(surface).toHaveClass(/is-drop-target/u);
+    const dataTransfer = await page.evaluateHandle(() => { const transfer = new DataTransfer(); transfer.items.add(new File(['{}'], 'dropped.srn')); return transfer; });
+    await surface.dispatchEvent('drop', { dataTransfer });
+    await expect(page.getByRole('alert')).toContainText('请拖入');
+    await surface.dispatchEvent('dragleave');
+    await expect(surface).not.toHaveClass(/is-drop-target/u);
   });
 });
